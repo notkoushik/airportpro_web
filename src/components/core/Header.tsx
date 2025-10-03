@@ -1,9 +1,18 @@
+import { useNavigate } from 'react-router-dom';
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Bell, User, Plane } from "lucide-react";
+import { Bell, User, Plane, ChevronLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-export const Header = () => {
+// Define the types for the props. All are optional.
+interface HeaderProps {
+  title?: string;
+  showBackButton?: boolean;
+}
+
+// This is the unified Header component
+export const Header = ({ title, showBackButton = false }: HeaderProps) => {
+  const navigate = useNavigate();
   const { toast } = useToast();
 
   const handleNotifications = () => {
@@ -20,6 +29,29 @@ export const Header = () => {
     });
   };
 
+  const handleBack = () => {
+    navigate(-1); // Go back to the previous page
+  };
+
+  // If a 'title' prop is provided, render the simple inner page header.
+  if (title) {
+    return (
+      <header className="relative flex items-center justify-center py-4 border-b">
+        {showBackButton && (
+          <button
+            onClick={handleBack}
+            className="absolute left-0 p-2 rounded-full hover:bg-secondary"
+            aria-label="Go back"
+          >
+            <ChevronLeft className="h-6 w-6" />
+          </button>
+        )}
+        <h1 className="text-xl font-bold text-center">{title}</h1>
+      </header>
+    );
+  }
+
+  // Otherwise, render the main header for the home screen.
   return (
     <header className="bg-gradient-aviation text-white p-4 shadow-aviation">
       <div className="flex items-center justify-between">
@@ -41,7 +73,7 @@ export const Header = () => {
             onClick={handleNotifications}
           >
             <Bell className="h-5 w-5" />
-            <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 bg-warning text-warning-foreground text-xs">
+            <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 bg-red-500 text-white text-xs">
               2
             </Badge>
           </Button>
@@ -59,3 +91,5 @@ export const Header = () => {
     </header>
   );
 };
+
+
