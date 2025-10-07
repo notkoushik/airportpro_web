@@ -25,3 +25,17 @@ export interface ScanResult {
   error?: string;
   timestamp: Date;
 }
+
+// Additional interfaces for enhanced functionality
+export interface ValidationResult {
+  isValid: boolean;
+  errors: string[];
+  confidence: number;
+}
+
+export interface ScannerConfig {
+  licenseKey?: string;
+  runtimeSettings?: string;
+  inputSize?: number;
+  scoreThreshold?: number;
+}

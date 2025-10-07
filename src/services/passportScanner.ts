@@ -1,14 +1,28 @@
-// src/services/passportScanner.ts
-// Change your import to this (CORRECT)
-import LabelRecognizer from 'dynamsoft-label-recognizer';
+import LabelRecognizer from 'dynamsoft-label-recognizer'; // CORRECTED: This now uses a default import
+import type { PassportData, MRZData, ScanResult, ScannerConfig } from '../types/passport';
+
 export class PassportScannerService {
   private recognizer: LabelRecognizer | null = null;
+  private config: ScannerConfig;
+
+  constructor(config: ScannerConfig = {}) {
+    this.config = {
+      licenseKey: config.licenseKey || import.meta.env.VITE_DYNAMSOFT_LICENSE_KEY,
+      runtimeSettings: config.runtimeSettings || "passportMRZ",
+      ...config
+    };
+  }
 
   async initialize(): Promise<void> {
     try {
+      // Set license key if available
+      if (this.config.licenseKey) {
+        LabelRecognizer.license = this.config.licenseKey;
+      }
+
       // Initialize Dynamsoft Label Recognizer
       this.recognizer = await LabelRecognizer.createInstance({
-        runtimeSettings: "passportMRZ"
+        runtimeSettings: this.config.runtimeSettings
       });
     } catch (error) {
       throw new Error(`Failed to initialize passport scanner: ${error}`);
@@ -89,4 +103,12 @@ export class PassportScannerService {
     const fullYear = year < 50 ? 2000 + year : 1900 + year;
     return `${fullYear}-${month}-${day}`;
   }
+
+  destroy(): void {
+    if (this.recognizer) {
+      // Clean up resources if needed
+      this.recognizer = null;
+    }
+  }
 }
+

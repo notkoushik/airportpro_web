@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { PassportScanner } from '../components/passport/PassportScanner';
-import { ScanResult } from '../services/passportScanner';
+import type { ScanResult, PassportData } from '../types/passport';
 
 /**
  * A robust, self-contained enrollment flow that DOES NOT assume
@@ -13,13 +13,23 @@ import { ScanResult } from '../services/passportScanner';
  * guides the user to scan and proceeds.
  */
 
-type PassportData = {
+// Mapping interface for local display purposes
+interface LocalPassportData {
   name: string;
   nationality: string;
   passportNumber: string;
   dob: string;
   expiry: string;
-};
+}
+
+// Conversion function to map the canonical PassportData to the local display format
+const convertPassportData = (passport: PassportData): LocalPassportData => ({
+  name: `${passport.surname}/${passport.givenNames}`,
+  nationality: passport.nationality,
+  passportNumber: passport.passportNumber,
+  dob: passport.dateOfBirth,
+  expiry: passport.dateOfExpiry,
+});
 
 type StepId = "intro" | "passport" | "position" | "details" | "selfie" | "complete";
 
@@ -42,6 +52,7 @@ export default function SmartPathEnroll() {
   const [step, setStep] = useState<StepId>("intro");
   const [isScanning, setIsScanning] = useState(false);
   const [isTakingPhoto, setIsTakingPhoto] = useState(false);
+  // State now uses the imported PassportData type
   const [passport, setPassport] = useState<PassportData | undefined>(initialFromState ?? initialFromStorage);
   const [selfieTaken, setSelfieTaken] = useState(false);
 
@@ -74,13 +85,18 @@ export default function SmartPathEnroll() {
   const handleScan = () => {
     setIsScanning(true);
     setTimeout(() => {
-      // Simulate successful scan results
+      // Simulate successful scan results using the correct PassportData structure
       const scanned: PassportData = {
-        name: "DOE/JOHN",
-        nationality: "USA",
+        documentType: "P",
+        countryCode: "USA",
+        surname: "DOE",
+        givenNames: "JOHN",
         passportNumber: "X1234567",
-        dob: "1990-05-21",
-        expiry: "2030-12-01",
+        nationality: "USA",
+        dateOfBirth: "1990-05-21",
+        sex: "M",
+        dateOfExpiry: "2030-12-01",
+        personalNumber: "123456789"
       };
       setPassport(scanned);
       setIsScanning(false);
@@ -174,52 +190,57 @@ export default function SmartPathEnroll() {
     </div>
   );
 
-  const Details = () => (
-    <div className="space-y-6">
-      <h2 className="text-xl font-semibold">Confirm your details</h2>
-      {!passport ? (
-        <div className="rounded-lg border p-5 text-center">
-          <p className="font-medium mb-1">No passport data found</p>
-          <p className="text-sm text-muted-foreground mb-4">
-            Let’s scan your passport now and continue.
-          </p>
-          <Button onClick={() => setStep("passport")}>Scan passport</Button>
-        </div>
-      ) : (
-        <Card className="border">
-          <CardContent className="p-4">
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div>
-                <p className="text-muted-foreground">Name</p>
-                <p className="font-medium">{passport.name}</p>
-              </div>
-              <div>
-                <p className="text-muted-foreground">Nationality</p>
-                <p className="font-medium">{passport.nationality}</p>
-              </div>
-              <div>
-                <p className="text-muted-foreground">Passport #</p>
-                <p className="font-medium">{passport.passportNumber}</p>
-              </div>
-              <div>
-                <p className="text-muted-foreground">DOB</p>
-                <p className="font-medium">{passport.dob}</p>
-              </div>
-              <div>
-                <p className="text-muted-foreground">Valid until</p>
-                <p className="font-medium">{passport.expiry}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+  const Details = () => {
+    // Convert the canonical passport data to the local format for display
+    const localPassport = passport ? convertPassportData(passport) : undefined;
 
-      <div className="grid grid-cols-2 gap-3">
-        <Button variant="outline" onClick={() => setStep("passport")}>Rescan</Button>
-        <Button onClick={goNext} disabled={!passport}>Looks good</Button>
+    return (
+      <div className="space-y-6">
+        <h2 className="text-xl font-semibold">Confirm your details</h2>
+        {!localPassport ? (
+          <div className="rounded-lg border p-5 text-center">
+            <p className="font-medium mb-1">No passport data found</p>
+            <p className="text-sm text-muted-foreground mb-4">
+              Let’s scan your passport now and continue.
+            </p>
+            <Button onClick={() => setStep("passport")}>Scan passport</Button>
+          </div>
+        ) : (
+          <Card className="border">
+            <CardContent className="p-4">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p className="text-muted-foreground">Name</p>
+                  <p className="font-medium">{localPassport.name}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Nationality</p>
+                  <p className="font-medium">{localPassport.nationality}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Passport #</p>
+                  <p className="font-medium">{localPassport.passportNumber}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">DOB</p>
+                  <p className="font-medium">{localPassport.dob}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Valid until</p>
+                  <p className="font-medium">{localPassport.expiry}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        <div className="grid grid-cols-2 gap-3">
+          <Button variant="outline" onClick={() => setStep("passport")}>Rescan</Button>
+          <Button onClick={goNext} disabled={!localPassport}>Looks good</Button>
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const Selfie = () => (
     <div className="space-y-6">
@@ -318,4 +339,3 @@ export default function SmartPathEnroll() {
     </div>
   );
 }
-

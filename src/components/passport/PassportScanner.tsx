@@ -1,7 +1,8 @@
 // src/components/passport/PassportScanner.tsx
 import React, { useRef, useEffect, useState } from 'react';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
-import { PassportScannerService, ScanResult } from '../../services/passportScanner';
+import { PassportScannerService } from '../../services/passportScanner';
+import type { ScanResult } from '../../types/passport';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 
@@ -17,24 +18,36 @@ export const PassportScanner: React.FC<PassportScannerProps> = ({
   const [isScanning, setIsScanning] = useState(false);
   const [scanner] = useState(new PassportScannerService());
   const [isInitialized, setIsInitialized] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const initScanner = async () => {
       try {
         await scanner.initialize();
         setIsInitialized(true);
+        setError(null);
       } catch (error) {
         console.error('Failed to initialize scanner:', error);
+        setError(`Scanner initialization failed: ${error}`);
       }
     };
 
     initScanner();
+    
+    // Cleanup on unmount
+    return () => {
+      scanner.destroy();
+    };
   }, [scanner]);
 
-  const handleCapture = async () => {
-    if (!isInitialized) return;
+  const handleCapture = async (): Promise<void> => {
+    if (!isInitialized) {
+      setError('Scanner not initialized');
+      return;
+    }
 
     setIsScanning(true);
+    setError(null);
     
     try {
       // Capture image using Capacitor Camera
@@ -49,8 +62,23 @@ export const PassportScanner: React.FC<PassportScannerProps> = ({
         // Convert data URL to image element
         const img = new Image();
         img.onload = async () => {
-          const result = await scanner.scanPassportMRZ(img);
-          onScanComplete(result);
+          try {
+            const result = await scanner.scanPassportMRZ(img);
+            onScanComplete(result);
+          } catch (scanError) {
+            onScanComplete({
+              success: false,
+              error: `Scan failed: ${scanError}`,
+              timestamp: new Date()
+            });
+          }
+        };
+        img.onerror = () => {
+          onScanComplete({
+            success: false,
+            error: 'Failed to load captured image',
+            timestamp: new Date()
+          });
         };
         img.src = image.dataUrl;
       }
@@ -76,6 +104,12 @@ export const PassportScanner: React.FC<PassportScannerProps> = ({
           <p className="text-sm text-muted-foreground mb-4">
             Position your passport's data page clearly in the camera frame
           </p>
+          
+          {error && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-md mb-4">
+              <p className="text-sm text-red-600">{error}</p>
+            </div>
+          )}
           
           <div className="space-y-2">
             <Button 
