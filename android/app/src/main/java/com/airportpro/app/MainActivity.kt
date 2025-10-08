@@ -1,21 +1,21 @@
-package com.example.app
+package com.airportpro.app
 
 import android.os.Bundle
 import android.webkit.PermissionRequest
 import android.webkit.WebChromeClient
 import android.webkit.WebSettings
-import android.webkit.WebView
 import com.getcapacitor.BridgeActivity
-import com.getcapacitor.R // Capacitor's R: contains the webview id
 
 class MainActivity : BridgeActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Let the web MRZ scanner access camera
-        val webView = findViewById<WebView>(R.id.webview)
-        webView?.settings?.apply {
+        // Use Capacitor's bridge to get the WebView (no R.id lookups needed)
+        val webView = bridge.webView
+
+        // Good defaults for the web MRZ scanner
+        with(webView.settings) {
             javaScriptEnabled = true
             domStorageEnabled = true
             mediaPlaybackRequiresUserGesture = false
@@ -25,9 +25,10 @@ class MainActivity : BridgeActivity() {
             }
         }
 
-        webView?.webChromeClient = object : WebChromeClient() {
+        // Allow getUserMedia camera/mic from the WebView
+        webView.webChromeClient = object : WebChromeClient() {
             override fun onPermissionRequest(request: PermissionRequest?) {
-                request?.grant(request?.resources) // grant camera/mic
+                request?.grant(request?.resources)
             }
         }
     }

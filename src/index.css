@@ -460,3 +460,14 @@
 .text-primary { color: var(--primary) !important; }
 .text-primary-foreground { color: var(--primary-foreground) !important; }
 .border-border { border-color: var(--border) !important; }
+/* --- CLICKABILITY FIXES (OVERRIDES) --- */
+.propass-card { position: relative; }
+.propass-card::before,
+.passport-scanner::before {
+  pointer-events: none !important;
+  z-index: 0 !important;
+}
+
+button, [role="button"], .btn, .quick-action-button {
+  cursor: pointer !important;
+}

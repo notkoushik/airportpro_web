@@ -1,7 +1,6 @@
-// vite.config.ts
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import path from 'path'
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import path from "path";
 
 export default defineConfig({
   plugins: [react()],
@@ -10,8 +9,18 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
-  define: {
-    // Ensure environment variables are available
-    'import.meta.env.VITE_DYNAMSOFT_LICENSE_KEY': JSON.stringify(process.env.VITE_DYNAMSOFT_LICENSE_KEY),
-  }
-})
+  // Make sure Vite only scans your web app's entry
+  optimizeDeps: {
+    entries: [path.resolve(__dirname, "index.html"), path.resolve(__dirname, "src/main.tsx")],
+  },
+  build: {
+    rollupOptions: {
+      input: path.resolve(__dirname, "index.html"),
+    },
+    outDir: "dist",
+    emptyOutDir: true,
+  },
+  server: {
+    host: true,
+  },
+});

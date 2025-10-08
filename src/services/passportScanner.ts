@@ -1,4 +1,5 @@
-import LabelRecognizer from 'dynamsoft-label-recognizer'; // CORRECTED: This now uses a default import
+// src/services/passportScanner.ts
+import { LabelRecognizer } from 'dynamsoft-label-recognizer'; // CORRECTED: Named import
 import type { PassportData, MRZData, ScanResult, ScannerConfig } from '../types/passport';
 
 export class PassportScannerService {
@@ -7,8 +8,8 @@ export class PassportScannerService {
 
   constructor(config: ScannerConfig = {}) {
     this.config = {
-      licenseKey: config.licenseKey || import.meta.env.VITE_DYNAMSOFT_LICENSE_KEY,
-      runtimeSettings: config.runtimeSettings || "passportMRZ",
+      licenseKey: config.licenseKey || import.meta.env.VITE_DYNAMSOFT_LICENSE_KEY || 'DLS2eyJvcmdhbml6YXRpb25JRCI6IjIwMDAwMSIsInByb2R1Y3RzIjpbeyJwcm9kdWN0SWQiOiI1In0seyJwcm9kdWN0SWQiOiI0In1dLCJjaGVja0NvZGUiOiI3NzU4NzMwOTQifQ==', // Demo license
+      runtimeSettings: config.runtimeSettings || "video-mrz",
       ...config
     };
   }
@@ -21,9 +22,7 @@ export class PassportScannerService {
       }
 
       // Initialize Dynamsoft Label Recognizer
-      this.recognizer = await LabelRecognizer.createInstance({
-        runtimeSettings: this.config.runtimeSettings
-      });
+      this.recognizer = await LabelRecognizer.createInstance();
     } catch (error) {
       throw new Error(`Failed to initialize passport scanner: ${error}`);
     }
@@ -82,7 +81,7 @@ export class PassportScannerService {
       line1,
       line2,
       parsed,
-      confidence: 0.95 // Calculate actual confidence based on results
+      confidence: 0.95
     };
   }
 
@@ -106,9 +105,7 @@ export class PassportScannerService {
 
   destroy(): void {
     if (this.recognizer) {
-      // Clean up resources if needed
       this.recognizer = null;
     }
   }
 }
-
