@@ -1,34 +1,43 @@
-// src/services/passportScanner.ts
-import { LabelRecognizer } from 'dynamsoft-label-recognizer'; // CORRECTED: Named import
+import { LabelRecognizer } from 'dynamsoft-label-recognizer';
 import type { PassportData, MRZData, ScanResult, ScannerConfig } from '../types/passport';
 
 export class PassportScannerService {
   private recognizer: LabelRecognizer | null = null;
   private config: ScannerConfig;
+  private isInitializing = false;
 
   constructor(config: ScannerConfig = {}) {
     this.config = {
-      licenseKey: config.licenseKey || import.meta.env.VITE_DYNAMSOFT_LICENSE_KEY || 'DLS2eyJvcmdhbml6YXRpb25JRCI6IjIwMDAwMSIsInByb2R1Y3RzIjpbeyJwcm9kdWN0SWQiOiI1In0seyJwcm9kdWN0SWQiOiI0In1dLCJjaGVja0NvZGUiOiI3NzU4NzMwOTQifQ==', // Demo license
+      licenseKey: config.licenseKey || import.meta.env.VITE_DYNAMSOFT_LICENSE_KEY || '',
       runtimeSettings: config.runtimeSettings || "video-mrz",
       ...config
     };
   }
 
   async initialize(): Promise<void> {
+    if (this.isInitializing || this.recognizer) return;
+    
+    this.isInitializing = true;
     try {
-      // Set license key if available
+      console.log('Initializing Dynamsoft Label Recognizer...');
+      
       if (this.config.licenseKey) {
         LabelRecognizer.license = this.config.licenseKey;
       }
 
-      // Initialize Dynamsoft Label Recognizer
+      await LabelRecognizer.loadWasm();
       this.recognizer = await LabelRecognizer.createInstance();
+      
+      console.log('Passport scanner initialized successfully');
     } catch (error) {
+      console.error('Failed to initialize passport scanner:', error);
       throw new Error(`Failed to initialize passport scanner: ${error}`);
+    } finally {
+      this.isInitializing = false;
     }
   }
 
-  async scanPassportMRZ(imageElement: HTMLImageElement): Promise<ScanResult> {
+  async scanPassportMRZ(imageElement: HTMLImageElement | HTMLCanvasElement | HTMLVideoElement): Promise<ScanResult> {
     if (!this.recognizer) {
       throw new Error('Scanner not initialized');
     }
@@ -60,52 +69,79 @@ export class PassportScannerService {
   }
 
   private parseMRZLines(results: any[]): MRZData {
-    const line1 = results[0].text;
-    const line2 = results[1].text;
+    const sortedResults = results.sort((a, b) => a.location.y - b.location.y);
+    const line1 = sortedResults[0].text.replace(/\s/g, '');
+    const line2 = sortedResults[1].text.replace(/\s/g, '');
     
-    // Parse according to ICAO Doc 9303 standard
     const parsed: PassportData = {
-      documentType: line1.substring(0, 2),
-      countryCode: line1.substring(2, 5),
+      documentType: this.cleanMRZField(line1.substring(0, 2)),
+      countryCode: this.cleanMRZField(line1.substring(2, 5)),
       surname: this.extractName(line1.substring(5)),
       givenNames: this.extractGivenNames(line1.substring(5)),
-      passportNumber: line2.substring(0, 9),
-      nationality: line2.substring(10, 13),
+      passportNumber: this.cleanMRZField(line2.substring(0, 9)),
+      nationality: this.cleanMRZField(line2.substring(10, 13)),
       dateOfBirth: this.parseDate(line2.substring(13, 19)),
-      sex: line2.substring(20, 21),
+      sex: this.cleanMRZField(line2.substring(20, 21)),
       dateOfExpiry: this.parseDate(line2.substring(21, 27)),
-      personalNumber: line2.substring(28, 42).replace(/</g, '') || undefined
+      personalNumber: this.cleanMRZField(line2.substring(28, 42)) || undefined
     };
 
     return {
       line1,
       line2,
       parsed,
-      confidence: 0.95
+      confidence: this.calculateValidationScore(parsed)
     };
   }
 
+  private cleanMRZField(field: string): string {
+    return field.replace(/</g, '').trim();
+  }
+
   private extractName(nameField: string): string {
-    return nameField.split('<<')[0].replace(/</g, ' ').trim();
+    const cleaned = nameField.replace(/</g, ' ').trim();
+    return cleaned.split('  ')[0] || '';
   }
 
   private extractGivenNames(nameField: string): string {
-    const parts = nameField.split('<<');
-    return parts.length > 1 ? parts[1].replace(/</g, ' ').trim() : '';
+    const cleaned = nameField.replace(/</g, ' ').trim();
+    return cleaned.split('  ').slice(1).join(' ').trim();
   }
 
   private parseDate(dateStr: string): string {
     if (dateStr.length !== 6) return dateStr;
+    
     const year = parseInt(dateStr.substring(0, 2));
     const month = dateStr.substring(2, 4);
     const day = dateStr.substring(4, 6);
-    const fullYear = year < 50 ? 2000 + year : 1900 + year;
+    const fullYear = year < 30 ? 2000 + year : 1900 + year;
+    
     return `${fullYear}-${month}-${day}`;
   }
 
-  destroy(): void {
+  private calculateValidationScore(data: PassportData): number {
+    let score = 0;
+    if (['P', 'V', 'I'].includes(data.documentType)) score += 0.2;
+    if (data.countryCode.length === 3) score += 0.2;
+    if (data.passportNumber.length > 0) score += 0.2;
+    if (this.isValidDate(data.dateOfBirth)) score += 0.2;
+    if (this.isValidDate(data.dateOfExpiry)) score += 0.2;
+    return score;
+  }
+
+  private isValidDate(dateStr: string): boolean {
+    const date = new Date(dateStr);
+    return date instanceof Date && !isNaN(date.getTime());
+  }
+
+  async destroy(): Promise<void> {
     if (this.recognizer) {
       this.recognizer = null;
     }
+    this.isInitializing = false;
+  }
+
+  isInitialized(): boolean {
+    return this.recognizer !== null && !this.isInitializing;
   }
 }

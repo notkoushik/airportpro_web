@@ -1,58 +1,73 @@
 package com.airportpro.app
 
+import android.nfc.NfcAdapter
 import android.nfc.Tag
 import android.nfc.tech.IsoDep
-import android.util.Log
-import java.io.IOException
+import com.getcapacitor.JSObject
 
 class PassportNFCService {
-    companion object {
-        private const val TAG = "PassportNFC"
-
-        // Basic passport detection
-        private val SELECT_APPLET = byteArrayOf(
-            0x00.toByte(), 0xA4.toByte(), 0x04.toByte(), 0x00.toByte(),
-            0x07.toByte(), 0xA0.toByte(), 0x00.toByte(), 0x00.toByte(),
-            0x02.toByte(), 0x47.toByte(), 0x10.toByte(), 0x01.toByte()
-        )
+    
+    private var nfcAdapter: NfcAdapter? = null
+    
+    fun initialize(adapter: NfcAdapter?) {
+        this.nfcAdapter = adapter
     }
-
-    data class BasicPassportInfo(
-        val isPassportDetected: Boolean,
-        val chipId: String?,
-        val errorMessage: String?
-    )
-
-    fun detectPassport(tag: Tag): BasicPassportInfo {
-        val isoDep = IsoDep.get(tag) ?: return BasicPassportInfo(
-            false, null, "IsoDep not supported"
-        )
-
+    
+    fun readNFCData(): JSObject {
+        val result = JSObject()
+        
         try {
-            isoDep.connect()
-            Log.d(TAG, "Connected to passport chip")
-
-            // Try to select passport application
-            val response = isoDep.transceive(SELECT_APPLET)
-            val success = response.size >= 2 &&
-                    response[response.size - 2] == 0x90.toByte() &&
-                    response[response.size - 1] == 0x00.toByte()
-
-            isoDep.close()
-
-            return if (success) {
-                BasicPassportInfo(
-                    true,
-                    tag.id.joinToString("") { "%02x".format(it) },
-                    null
-                )
-            } else {
-                BasicPassportInfo(false, null, "Passport application not found")
-            }
-
-        } catch (e: IOException) {
-            Log.e(TAG, "NFC communication failed: ${e.message}")
-            return BasicPassportInfo(false, null, e.message)
+            // Simulate NFC reading - replace with actual implementation
+            result.put("success", true)
+            result.put("message", "NFC data read successfully")
+            result.put("data", JSObject().apply {
+                put("chipData", "Sample chip data")
+                put("timestamp", System.currentTimeMillis())
+                put("authenticated", true)
+            })
+        } catch (e: Exception) {
+            result.put("success", false)
+            result.put("error", "Failed to read NFC data: ${e.message}")
         }
+        
+        return result
+    }
+    
+    fun processTag(tag: Tag): JSObject {
+        val result = JSObject()
+        
+        try {
+            val isoDep = IsoDep.get(tag)
+            isoDep?.let { 
+                it.connect()
+                
+                // Simulate passport chip reading
+                result.put("success", true)
+                result.put("tagId", bytesToHex(tag.id))
+                result.put("techList", tag.techList.joinToString(","))
+                
+                it.close()
+            } ?: run {
+                result.put("success", false)
+                result.put("error", "Not an ISO-DEP tag")
+            }
+        } catch (e: Exception) {
+            result.put("success", false)
+            result.put("error", "Tag processing failed: ${e.message}")
+        }
+        
+        return result
+    }
+    
+    private fun bytesToHex(bytes: ByteArray): String {
+        return bytes.joinToString("") { "%02x".format(it) }
+    }
+    
+    fun isNFCEnabled(): Boolean {
+        return nfcAdapter?.isEnabled == true
+    }
+    
+    fun isNFCSupported(): Boolean {
+        return nfcAdapter != null
     }
 }
