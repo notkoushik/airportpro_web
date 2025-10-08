@@ -1,61 +1,91 @@
 apply plugin: 'com.android.application'
-apply plugin: 'kotlin-android'
 
 android {
     namespace "com.airportpro.app"
-    compileSdkVersion 34
+    compileSdk 35
 
     defaultConfig {
         applicationId "com.airportpro.app"
         minSdkVersion 23
-        targetSdkVersion 34
+        targetSdkVersion 35
         versionCode 1
         versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        aaptOptions {
+            ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
     }
 
-    // App bytecode level = 17 (Gradle itself runs on JDK 21)
+    // CORRECT: Use sourceCompatibility/targetCompatibility instead of release option
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
-    kotlinOptions {
-        jvmTarget = "17"
-    }
 
     packagingOptions {
-        resources { excludes += ["/META-INF/{AL2.0,LGPL2.1}", "META-INF/DEPENDENCIES"] }
+        resources { 
+            excludes += ["/META-INF/{AL2.0,LGPL2.1}", "META-INF/DEPENDENCIES"] 
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
     }
 }
 
-/* Stay on API 34 – avoid core/core-ktx 1.15.x (needs API 35) */
+// Force compatible versions to prevent dependency conflicts
 configurations.all {
     resolutionStrategy {
-        force "androidx.core:core:1.13.1", "androidx.core:core-ktx:1.13.1"
+        force "androidx.core:core:1.13.1"
+        force "androidx.core:core-ktx:1.13.1"
+        force "androidx.appcompat:appcompat:1.6.1"
     }
 }
 
-/* Extra guard so nothing bumps app’s Java/Kotlin target */
-tasks.withType(JavaCompile).configureEach { options.release = 17 }
-tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
-    kotlinOptions { jvmTarget = "17" }
-}
+// REMOVED: The problematic release option line
+// DO NOT USE: tasks.withType(JavaCompile).configureEach { options.release = 17 }
 
 dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    
+    // Core Android dependencies - pinned to compatible versions
+    implementation "androidx.core:core:1.13.1"
+    implementation "androidx.appcompat:appcompat:1.6.1"
+    implementation "androidx.coordinatorlayout:coordinatorlayout:1.2.0"
+    implementation "androidx.core:core-splashscreen:1.0.1"
+    
+    // Capacitor core (subproject)
     implementation project(':capacitor-android')
     implementation project(':capacitor-cordova-android-plugins')
-
-    implementation "androidx.core:core:1.13.1"
-    implementation "androidx.core:core-ktx:1.13.1"
-    implementation "androidx.appcompat:appcompat:1.7.0"
-    implementation "com.google.android.material:material:1.12.0"
-    implementation "androidx.activity:activity-ktx:1.9.2"
-    implementation "androidx.fragment:fragment-ktx:1.8.3"
-
+    
+    // Capacitor plugins as Maven artifacts (Option B approach)
+    implementation "com.capacitorjs:camera:7.0.2"
+    implementation "com.capacitorjs:device:7.0.2"
+    
+    // Test dependencies
     testImplementation "junit:junit:4.13.2"
-    androidTestImplementation "androidx.test.ext:junit:1.2.1"
-    androidTestImplementation "androidx.test.espresso:espresso-core:3.6.1"
+    androidTestImplementation "androidx.test.ext:junit:1.1.5"
+    androidTestImplementation "androidx.test.espresso:espresso-core:3.5.1"
 }
 
-/* Let Capacitor inject plugin deps (now using Maven artifacts) */
-apply from: 'capacitor.build.gradle'
+// Apply Capacitor configuration safely
+try {
+    def capacitorBuildFile = file('capacitor.build.gradle')
+    if (capacitorBuildFile.exists()) {
+        apply from: 'capacitor.build.gradle'
+    }
+} catch(Exception e) {
+    logger.info("capacitor.build.gradle not found, skipping")
+}
+
+try {
+    def servicesJSON = file('google-services.json')
+    if (servicesJSON.text) {
+        apply plugin: 'com.google.gms.google-services'
+    }
+} catch(Exception e) {
+    logger.info("google-services.json not found, google-services plugin not applied")
+}
