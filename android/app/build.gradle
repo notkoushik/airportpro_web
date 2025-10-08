@@ -1,55 +1,61 @@
 apply plugin: 'com.android.application'
+apply plugin: 'kotlin-android'
 
 android {
-    namespace "com.airportpro.app" 
+    namespace "com.airportpro.app"
     compileSdkVersion 34
-    
+
     defaultConfig {
         applicationId "com.airportpro.app"
-        minSdkVersion 22
+        minSdkVersion 23
         targetSdkVersion 34
         versionCode 1
         versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
-    
+
+    // App bytecode level = 17 (Gradle itself runs on JDK 21)
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
-    
-    buildTypes {
-        release {
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-        }
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+
+    packagingOptions {
+        resources { excludes += ["/META-INF/{AL2.0,LGPL2.1}", "META-INF/DEPENDENCIES"] }
     }
 }
 
+/* Stay on API 34 – avoid core/core-ktx 1.15.x (needs API 35) */
 configurations.all {
     resolutionStrategy {
-        force 'androidx.core:core:1.10.1'
-        force 'androidx.core:core-ktx:1.10.1'
-        force 'androidx.appcompat:appcompat:1.6.1'
+        force "androidx.core:core:1.13.1", "androidx.core:core-ktx:1.13.1"
     }
+}
+
+/* Extra guard so nothing bumps app’s Java/Kotlin target */
+tasks.withType(JavaCompile).configureEach { options.release = 17 }
+tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+    kotlinOptions { jvmTarget = "17" }
 }
 
 dependencies {
-    implementation fileTree(include: ['*.jar'], dir: 'libs')
-    
-    // Force older, compatible versions
-    implementation 'androidx.appcompat:appcompat:1.6.1'
-    implementation 'androidx.core:core:1.10.1'
-    implementation 'androidx.core:core-splashscreen:1.0.1'
-    
     implementation project(':capacitor-android')
     implementation project(':capacitor-cordova-android-plugins')
-    implementation project(':capacitor-camera')
-    implementation project(':capacitor-device')
-    
-    testImplementation 'junit:junit:4.13.2'
-    androidTestImplementation 'androidx.test.ext:junit:1.1.5'
-    androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
+
+    implementation "androidx.core:core:1.13.1"
+    implementation "androidx.core:core-ktx:1.13.1"
+    implementation "androidx.appcompat:appcompat:1.7.0"
+    implementation "com.google.android.material:material:1.12.0"
+    implementation "androidx.activity:activity-ktx:1.9.2"
+    implementation "androidx.fragment:fragment-ktx:1.8.3"
+
+    testImplementation "junit:junit:4.13.2"
+    androidTestImplementation "androidx.test.ext:junit:1.2.1"
+    androidTestImplementation "androidx.test.espresso:espresso-core:3.6.1"
 }
 
+/* Let Capacitor inject plugin deps (now using Maven artifacts) */
 apply from: 'capacitor.build.gradle'
