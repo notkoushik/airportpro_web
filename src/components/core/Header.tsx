@@ -1,29 +1,25 @@
-// src/components/core/Header.tsx
-import { Bell, Menu, User } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import React from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-export const Header = () => {
+const Header: React.FC = () => {
   return (
-    <header className="bg-white border-b border-gray-200">
-      <div className="container mx-auto px-4 py-4">
+    <Card className="bg-aviation-gradient text-white shadow-aviation border-0">
+      <CardHeader className="pb-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <Button variant="ghost" size="icon">
-              <Menu className="h-5 w-5" />
-            </Button>
-            <h1 className="text-xl font-bold text-gray-900">AirportPro</h1>
-          </div>
-          
+          <CardTitle className="text-2xl font-bold tracking-tight">
+            AirportPro
+          </CardTitle>
           <div className="flex items-center space-x-2">
-            <Button variant="ghost" size="icon">
-              <Bell className="h-5 w-5" />
-            </Button>
-            <Button variant="ghost" size="icon">
-              <User className="h-5 w-5" />
-            </Button>
+            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+            <span className="text-sm opacity-90">Connected</span>
           </div>
         </div>
-      </div>
-    </header>
+        <p className="text-white/80 text-sm">
+          Your seamless travel companion
+        </p>
+      </CardHeader>
+    </Card>
   );
 };
+
+export default Header;
