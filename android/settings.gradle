@@ -3,18 +3,18 @@ pluginManagement {
         google()
         mavenCentral()
         gradlePluginPortal()
+        // Add ML Kit repository for plugin resolution
+        maven { url "https://dl.google.com/dl/android/maven2/" }
     }
 }
 
 dependencyResolutionManagement {
-    // ✅ CRITICAL FIX: Change to FAIL_ON_PROJECT_REPOS to allow proper repository resolution
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
         google()
         mavenCentral()
-        // ✅ Add ML Kit specific repository
+        // ML Kit specific repositories
         maven { url "https://dl.google.com/dl/android/maven2/" }
-        // ✅ Add additional Maven repositories for ML Kit dependencies
         maven { url "https://maven.google.com" }
     }
 }

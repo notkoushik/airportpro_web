@@ -17,6 +17,11 @@ buildscript {
         mlkitTextRecognitionVersion = '16.0.0'
         coroutinesVersion = '1.7.3'
     }
+    plugins {
+    id 'com.android.application' version '8.7.0' apply false
+    id 'org.jetbrains.kotlin.android' version '1.9.20' apply false
+    id 'com.google.gms.google-services' version '4.4.0' apply false
+}
     
     // ✅ CRITICAL FIX: Remove repositories block entirely when using FAIL_ON_PROJECT_REPOS
     // All repositories must be defined ONLY in settings.gradle
