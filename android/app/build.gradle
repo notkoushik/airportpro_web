@@ -11,12 +11,8 @@ android {
         versionCode 1
         versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
-        aaptOptions {
-            ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
-        }
     }
 
-    // CORRECT: Use sourceCompatibility/targetCompatibility instead of release option
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
@@ -40,13 +36,10 @@ android {
 configurations.all {
     resolutionStrategy {
         force "androidx.core:core:1.13.1"
-        force "androidx.core:core-ktx:1.13.1"
+        force "androidx.core:core-ktx:1.13.1" 
         force "androidx.appcompat:appcompat:1.6.1"
     }
 }
-
-// REMOVED: The problematic release option line
-// DO NOT USE: tasks.withType(JavaCompile).configureEach { options.release = 17 }
 
 dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
@@ -57,13 +50,11 @@ dependencies {
     implementation "androidx.coordinatorlayout:coordinatorlayout:1.2.0"
     implementation "androidx.core:core-splashscreen:1.0.1"
     
-    // Capacitor core (subproject)
+    // Use Capacitor subprojects (this works with your versions)
     implementation project(':capacitor-android')
     implementation project(':capacitor-cordova-android-plugins')
-    
-    // Capacitor plugins as Maven artifacts (Option B approach)
-    implementation "com.capacitorjs:camera:7.0.2"
-    implementation "com.capacitorjs:device:7.0.2"
+    implementation project(':capacitor-camera')
+    implementation project(':capacitor-device')
     
     // Test dependencies
     testImplementation "junit:junit:4.13.2"
@@ -71,21 +62,5 @@ dependencies {
     androidTestImplementation "androidx.test.espresso:espresso-core:3.5.1"
 }
 
-// Apply Capacitor configuration safely
-try {
-    def capacitorBuildFile = file('capacitor.build.gradle')
-    if (capacitorBuildFile.exists()) {
-        apply from: 'capacitor.build.gradle'
-    }
-} catch(Exception e) {
-    logger.info("capacitor.build.gradle not found, skipping")
-}
-
-try {
-    def servicesJSON = file('google-services.json')
-    if (servicesJSON.text) {
-        apply plugin: 'com.google.gms.google-services'
-    }
-} catch(Exception e) {
-    logger.info("google-services.json not found, google-services plugin not applied")
-}
+// Apply Capacitor configuration
+apply from: 'capacitor.build.gradle'
