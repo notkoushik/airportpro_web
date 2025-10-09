@@ -7,7 +7,7 @@ class MainActivity : BridgeActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // DO NOT register PassportPlugin until it's properly implemented
-        // registerPlugin(PassportPlugin::class.java)
+        // Debug log to verify class is loaded
+        android.util.Log.d("MainActivity", "MainActivity successfully created!")
     }
 }

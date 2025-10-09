@@ -1,4 +1,5 @@
 apply plugin: 'com.android.application'
+apply plugin: 'kotlin-android' // Add Kotlin plugin
 
 android {
     namespace "com.airportpro.app"
@@ -13,9 +14,15 @@ android {
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    // ✅ CRITICAL FIX: Use Java 21 consistently
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_17
-        targetCompatibility JavaVersion.VERSION_17
+        sourceCompatibility JavaVersion.VERSION_21
+        targetCompatibility JavaVersion.VERSION_21
+    }
+
+    // ✅ CRITICAL FIX: Add Kotlin compile options
+    kotlinOptions {
+        jvmTarget = '21'
     }
 
     packagingOptions {
@@ -50,7 +57,10 @@ dependencies {
     implementation "androidx.coordinatorlayout:coordinatorlayout:1.2.0"
     implementation "androidx.core:core-splashscreen:1.0.1"
     
-    // Use Capacitor subprojects (this works with your versions)
+    // ✅ CRITICAL FIX: Add Kotlin stdlib
+    implementation "org.jetbrains.kotlin:kotlin-stdlib:1.9.20"
+    
+    // Use Capacitor subprojects
     implementation project(':capacitor-android')
     implementation project(':capacitor-cordova-android-plugins')
     implementation project(':capacitor-camera')
