@@ -7,7 +7,7 @@ class MainActivity : BridgeActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // Register custom plugins
-        registerPlugin(PassportPlugin::class.java)
+        // DO NOT register PassportPlugin until it's properly implemented
+        // registerPlugin(PassportPlugin::class.java)
     }
 }

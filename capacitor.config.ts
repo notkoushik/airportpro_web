@@ -1,9 +1,17 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.example.app',
-  appName: 'airportpro-web',
-  webDir: 'dist'
+  appId: 'com.airportpro.app',  // ✅ FIXED: Match AndroidManifest
+  appName: 'AirportPro',
+  webDir: 'dist',
+  server: {
+    androidScheme: 'https'
+  },
+  plugins: {
+    Camera: {
+      permissions: ["camera", "photos"]
+    }
+  }
 };
 
 export default config;
