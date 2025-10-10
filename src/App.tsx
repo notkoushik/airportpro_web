@@ -11,6 +11,7 @@ import Map from "./pages/Map";
 import More from "./pages/More";
 import SmartPathEnroll from "./pages/SmartPathEnroll";
 import NotFound from "./pages/NotFound";
+import EnhancedSmartPathEnroll from './pages/EnhancedSmartPathEnroll';
 
 // (Optional) If you have a header or bottom nav, import & render them outside <Routes>
 // import { Header } from "@/components/core/Header";
@@ -27,6 +28,7 @@ export default function App() {
         <Route path="/wait-times" element={<WaitTimes />} />
         <Route path="/map" element={<Map />} />
         <Route path="/more" element={<More />} />
+        <Route path="/enroll-enhanced" element={<EnhancedSmartPathEnroll />} />
 
         {/* ProPass Enrollment (the route your "Scan Passport" navigates to) */}
         <Route path="/smart-path/enroll" element={<SmartPathEnroll />} />

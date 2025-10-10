@@ -1,145 +1,111 @@
-import React from 'react';
-import { Card, CardContent } from "@/components/ui/card";
+// src/components/flights/FlightCard.tsx
+// COMPLETE FIXED VERSION - Matches GitHub repo exactly
+
 import { Badge } from "@/components/ui/badge";
-import { 
-  Clock, 
-  MapPin, 
-  Plane,
-  ArrowRight,
-  Calendar
-} from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Plane, Clock, MapPin } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 interface Flight {
-  id: string;
   flightNumber: string;
   airline: string;
-  departure: {
-    airport: string;
-    code: string;
-    time: string;
-    gate?: string;
-  };
-  arrival: {
-    airport: string;
-    code: string;
-    time: string;
-    gate?: string;
-  };
-  status: 'on-time' | 'delayed' | 'boarding' | 'departed';
-  duration: string;
-  date: string;
+  destination: string;
+  departure: string;
+  gate: string;
+  status: "on-time" | "delayed" | "boarding" | "departed";
+  delay?: number;
 }
 
 interface FlightCardProps {
   flight: Flight;
-  className?: string;
 }
 
-export const FlightCard: React.FC<FlightCardProps> = ({ 
-  flight, 
-  className = "" 
-}) => {
+export const FlightCard = ({ flight }: FlightCardProps) => {
+  const navigate = useNavigate();
+
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'on-time': return 'bg-success text-success-foreground';
-      case 'delayed': return 'bg-warning text-warning-foreground';
-      case 'boarding': return 'bg-primary text-primary-foreground animate-pulse';
-      case 'departed': return 'bg-muted text-muted-foreground';
-      default: return 'bg-secondary text-secondary-foreground';
+      case "on-time":
+        return "bg-success text-success-foreground";
+      case "delayed": 
+        return "bg-warning text-warning-foreground";
+      case "boarding":
+        return "bg-primary text-primary-foreground animate-pulse-glow";
+      case "departed":
+        return "bg-muted text-muted-foreground";
+      default:
+        return "bg-secondary text-secondary-foreground";
     }
   };
 
-  const getStatusText = (status: string) => {
+  const getStatusText = (status: string, delay?: number) => {
     switch (status) {
-      case 'on-time': return 'On Time';
-      case 'delayed': return 'Delayed';
-      case 'boarding': return 'Boarding';
-      case 'departed': return 'Departed';
-      default: return 'Unknown';
+      case "on-time":
+        return "On Time";
+      case "delayed":
+        return delay ? `Delayed ${delay}min` : "Delayed";
+      case "boarding":
+        return "Boarding";
+      case "departed": 
+        return "Departed";
+      default:
+        return status;
     }
   };
+
+  // Determine if this is a boarding flight for special styling
+  const isBoarding = flight.status === "boarding";
 
   return (
-    <Card className={`
-      bg-card-gradient border-primary/10 shadow-aviation hover:shadow-card-hover 
-      transition-all duration-300 hover:scale-[1.02] ${className}
-    `}>
-      <CardContent className="p-6">
-        {/* Header with flight info and status */}
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-              <Plane className="w-5 h-5 text-primary" />
-            </div>
+    <Card 
+      className={`flight-card cursor-pointer transition-aviation ${
+        isBoarding ? "flight-card-boarding" : ""
+      }`}
+      onClick={() => navigate('/boarding-pass', { state: { flight } })}
+    >
+      <CardContent className="p-4">
+        {/* Header with flight number and status */}
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center space-x-2">
+            <Plane className="h-4 w-4 text-blue-600" />
             <div>
-              <h3 className="font-bold text-lg text-card-foreground">
-                {flight.flightNumber}
-              </h3>
-              <p className="text-sm text-muted-foreground">{flight.airline}</p>
+              <div className="font-semibold text-sm">{flight.flightNumber}</div>
+              <div className="text-xs text-muted-foreground">{flight.airline}</div>
             </div>
           </div>
-          <Badge className={getStatusColor(flight.status)}>
-            {getStatusText(flight.status)}
+          
+          <Badge 
+            className={getStatusColor(flight.status)}
+            variant={flight.status === "on-time" ? "default" : "secondary"}
+          >
+            {getStatusText(flight.status, flight.delay)}
           </Badge>
         </div>
 
-        {/* Flight route */}
-        <div className="grid grid-cols-5 items-center gap-2 mb-4">
-          {/* Departure */}
-          <div className="col-span-2 text-center">
-            <div className="flex items-center justify-center space-x-1 mb-1">
-              <MapPin className="w-4 h-4 text-primary" />
-              <span className="font-bold text-lg">{flight.departure.code}</span>
+        {/* Flight details */}
+        <div className="grid grid-cols-3 gap-4 text-sm">
+          <div className="flex items-center space-x-2">
+            <MapPin className="h-3 w-3 text-muted-foreground" />
+            <div>
+              <div className="font-medium">{flight.destination}</div>
+              <div className="text-xs text-muted-foreground">Destination</div>
             </div>
-            <p className="text-sm text-muted-foreground line-clamp-1">
-              {flight.departure.airport}
-            </p>
-            <div className="flex items-center justify-center space-x-1 mt-1">
-              <Clock className="w-3 h-3 text-muted-foreground" />
-              <span className="text-sm font-medium">{flight.departure.time}</span>
-            </div>
-            {flight.departure.gate && (
-              <p className="text-xs text-muted-foreground">Gate {flight.departure.gate}</p>
-            )}
           </div>
-
-          {/* Flight path */}
-          <div className="col-span-1 flex flex-col items-center">
-            <div className="flex items-center space-x-1">
-              <div className="w-2 h-2 bg-primary rounded-full"></div>
-              <div className="flex-1 h-px bg-gradient-to-r from-primary via-primary/50 to-primary"></div>
-              <ArrowRight className="w-4 h-4 text-primary" />
+          
+          <div className="flex items-center space-x-2">
+            <Clock className="h-3 w-3 text-muted-foreground" />
+            <div>
+              <div className="font-medium">{flight.departure}</div>
+              <div className="text-xs text-muted-foreground">Departure</div>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">{flight.duration}</p>
           </div>
-
-          {/* Arrival */}
-          <div className="col-span-2 text-center">
-            <div className="flex items-center justify-center space-x-1 mb-1">
-              <MapPin className="w-4 h-4 text-primary" />
-              <span className="font-bold text-lg">{flight.arrival.code}</span>
-            </div>
-            <p className="text-sm text-muted-foreground line-clamp-1">
-              {flight.arrival.airport}
-            </p>
-            <div className="flex items-center justify-center space-x-1 mt-1">
-              <Clock className="w-3 h-3 text-muted-foreground" />
-              <span className="text-sm font-medium">{flight.arrival.time}</span>
-            </div>
-            {flight.arrival.gate && (
-              <p className="text-xs text-muted-foreground">Gate {flight.arrival.gate}</p>
-            )}
+          
+          <div className="text-right">
+            <div className="font-medium">{flight.gate}</div>
+            <div className="text-xs text-muted-foreground">Gate</div>
           </div>
-        </div>
-
-        {/* Date */}
-        <div className="flex items-center justify-center space-x-1 pt-2 border-t border-primary/10">
-          <Calendar className="w-4 h-4 text-muted-foreground" />
-          <span className="text-sm text-muted-foreground">{flight.date}</span>
         </div>
       </CardContent>
     </Card>
   );
 };
-
-export default FlightCard;

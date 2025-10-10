@@ -1,25 +1,42 @@
-import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+// src/components/core/Header.tsx
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Bell, User, Plane } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
-const Header: React.FC = () => {
+export const Header = () => {
+  const { toast } = useToast();
+
+  const handleNotifications = () => {
+    toast({
+      title: "Notifications",
+      description: "You have 2 new notifications",
+    });
+  };
+
+  const handleProfile = () => {
+    toast({
+      title: "Profile", 
+      description: "Profile settings opened",
+    });
+  };
+
   return (
-    <Card className="bg-aviation-gradient text-white shadow-aviation border-0">
-      <CardHeader className="pb-4">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-2xl font-bold tracking-tight">
-            AirportPro
-          </CardTitle>
-          <div className="flex items-center space-x-2">
-            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-            <span className="text-sm opacity-90">Connected</span>
-          </div>
-        </div>
-        <p className="text-white/80 text-sm">
-          Your seamless travel companion
-        </p>
-      </CardHeader>
-    </Card>
+    <header className="flex items-center justify-between p-4 bg-white border-b">
+      <div className="flex items-center space-x-2">
+        <Plane className="h-6 w-6 text-blue-600" />
+        <h1 className="text-xl font-bold">AirportPro</h1>
+        <Badge variant="outline" className="text-xs">BETA</Badge>
+      </div>
+      
+      <div className="flex items-center space-x-2">
+        <Button variant="ghost" size="sm" onClick={handleNotifications}>
+          <Bell className="h-4 w-4" />
+        </Button>
+        <Button variant="ghost" size="sm" onClick={handleProfile}>
+          <User className="h-4 w-4" />
+        </Button>
+      </div>
+    </header>
   );
 };
-
-export default Header;
