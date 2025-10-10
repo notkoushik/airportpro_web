@@ -81,10 +81,12 @@ class MainActivity : BridgeActivity() {
         }
     }
 
-    override fun onNewIntent(intent: Intent?) {
+    // ✅ FIX 1: Proper override signature
+    override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         
-        if (NfcAdapter.ACTION_TECH_DISCOVERED == intent?.action) {
+        // ✅ FIX 2: Handle non-null intent properly  
+        if (NfcAdapter.ACTION_TECH_DISCOVERED == intent.action) {
             val tag = intent.getParcelableExtra<Tag>(NfcAdapter.EXTRA_TAG)
             tag?.let {
                 Log.i(TAG, "Passport chip detected")
@@ -133,11 +135,14 @@ class MainActivity : BridgeActivity() {
             // Send event to React layer
             bridge?.let { bridge ->
                 try {
-                    val nfcData = mapOf(
-                        "tagId" to tag.id.joinToString(":") { "%02x".format(it) },
-                        "isPassportChip" to true,
-                        "timestamp" to System.currentTimeMillis()
-                    )
+                    // ✅ FIX 3: Convert Map to JSON string for triggerWindowJSEvent
+                    val nfcData = """
+                        {
+                            "tagId": "${tag.id.joinToString(":") { "%02x".format(it) }}",
+                            "isPassportChip": true,
+                            "timestamp": ${System.currentTimeMillis()}
+                        }
+                    """.trimIndent()
                     
                     bridge.triggerWindowJSEvent("nfcPassportDetected", nfcData)
                     Log.d(TAG, "NFC event sent to React layer")

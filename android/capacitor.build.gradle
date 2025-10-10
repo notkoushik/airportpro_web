@@ -1,13 +1,23 @@
+// ✅ CRITICAL FIX: Align Capacitor to JVM 21 to match app module
+
 android {
+    // ✅ CHANGED FROM JavaVersion.VERSION_17 TO JavaVersion.VERSION_21
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_17
-        targetCompatibility JavaVersion.VERSION_17
+        sourceCompatibility JavaVersion.VERSION_21
+        targetCompatibility JavaVersion.VERSION_21
     }
 }
 
+// ✅ Keep existing resolution strategy but ensure compatibility
 configurations.all {
     resolutionStrategy {
-        force 'androidx.core:core:1.13.1'
-        force 'androidx.core:core-ktx:1.13.1'
+        force 'androidx.core:core:1.15.0'
+        force 'androidx.core:core-ktx:1.15.0'
+        // ✅ Add Java 21 compatibility enforcement
+        eachDependency { dependency ->
+            if (dependency.requested.group == 'org.jetbrains.kotlin') {
+                dependency.useVersion '2.0.21'
+            }
+        }
     }
 }
