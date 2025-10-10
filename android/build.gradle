@@ -1,43 +1,16 @@
-buildscript {
-    ext {
-        compileSdkVersion = 35
-        targetSdkVersion = 35
-        minSdkVersion = 23
-        cordovaAndroidVersion = '10.1.1'
-        coreSplashScreenVersion = '1.0.1'
-        androidxAppCompatVersion = '1.6.1'
-        androidxCoordinatorLayoutVersion = '1.2.0'
-        androidxCoreVersion = '1.13.1'
-        androidxJunitVersion = '1.1.5'
-        androidxEspressoCoreVersion = '3.5.1'
-        junitVersion = '4.13.2'
-        kotlin_version = '1.9.20'
-        // ML Kit versions for consistency
-        mlkitFaceDetectionVersion = '16.1.6'
-        mlkitTextRecognitionVersion = '16.0.0'
-        coroutinesVersion = '1.7.3'
-    }
-    plugins {
-    id 'com.android.application' version '8.7.0' apply false
-    id 'org.jetbrains.kotlin.android' version '1.9.20' apply false
-    id 'com.google.gms.google-services' version '4.4.0' apply false
-}
-    
-    // ✅ CRITICAL FIX: Remove repositories block entirely when using FAIL_ON_PROJECT_REPOS
-    // All repositories must be defined ONLY in settings.gradle
-    
-    dependencies {
-        classpath 'com.android.tools.build:gradle:8.7.0'
-        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
-        classpath 'com.google.gms:google-services:4.4.0'
-    }
+// ✅ CRITICAL FIX: Modern plugins approach - no more buildscript!
+plugins {
+    id 'com.android.application' version '8.7.2' apply false
+    id 'org.jetbrains.kotlin.android' version '2.0.21' apply false
+    id 'com.google.gms.google-services' version '4.4.2' apply false
 }
 
+// ✅ Apply your existing variables
 apply from: "variables.gradle"
 
-// ✅ CRITICAL FIX: Remove allprojects repositories block
-// This conflicts with FAIL_ON_PROJECT_REPOS setting in settings.gradle
+// ✅ CRITICAL: Remove allprojects{} block - settings.gradle handles repositories now
 
+// ✅ Keep your existing clean task
 tasks.register('clean', Delete) {
     delete rootProject.buildDir
 }

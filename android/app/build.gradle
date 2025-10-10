@@ -1,109 +1,121 @@
-apply plugin: 'com.android.application'
-apply plugin: 'kotlin-android'
+plugins {
+    id 'com.android.application'
+    id 'kotlin-android'
+}
 
 android {
+    // ✅ CRITICAL FIX: Change from com.example.app to com.airportpro.app
     namespace "com.airportpro.app"
-    compileSdk 35
-
+    compileSdk rootProject.ext.compileSdkVersion
+    
     defaultConfig {
+        // ✅ CRITICAL FIX: Change applicationId to match your package structure
         applicationId "com.airportpro.app"
-        minSdkVersion 23
-        targetSdkVersion 35
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
         versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        
+        // ✅ Keep your existing aaptOptions - they're good
+        aaptOptions {
+            ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
     }
 
-    // ✅ CRITICAL FIX: Use Java 17 for better compatibility
+    // ✅ CRITICAL: Add Java 17 support for AGP 8.7.2
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
 
-    // ✅ CRITICAL FIX: Kotlin compile options
     kotlinOptions {
         jvmTarget = '17'
     }
 
-    packagingOptions {
-        resources { 
-            excludes += ["/META-INF/{AL2.0,LGPL2.1}", "META-INF/DEPENDENCIES"] 
-        }
-    }
-
+    // ✅ Keep your existing buildTypes - they're perfect
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
+
+    // ✅ NEW: Add packaging options for ML Kit
+    packaging {
+        resources {
+            excludes += ['/META-INF/{AL2.0,LGPL2.1}']
+            excludes += ['META-INF/DEPENDENCIES']
+        }
+    }
 }
 
-// ✅ CRITICAL: Add repositories to app-level build.gradle
-repositories {
-    google()
-    mavenCentral()
-    maven { url "https://dl.google.com/dl/android/maven2/" }
-    maven { url "https://maven.google.com" }
-}
+// ✅ CRITICAL: Remove repositories block - settings.gradle handles this now
 
-// Force compatible versions to prevent dependency conflicts
+// ✅ Force compatible versions for your new ML Kit features
 configurations.all {
     resolutionStrategy {
-        force "androidx.core:core:1.13.1"
-        force "androidx.core:core-ktx:1.13.1" 
-        force "androidx.appcompat:appcompat:1.6.1"
-        // ✅ Force compatible ML Kit versions
-        force "com.google.android.gms:play-services-mlkit-text-recognition:19.0.1"
-        force "com.google.mlkit:text-recognition:16.0.0"
-        force "com.google.mlkit:face-detection:16.1.6"
+        force "androidx.core:core:${rootProject.ext.androidxCoreVersion}"
+        force "androidx.appcompat:appcompat:${rootProject.ext.androidxAppCompatVersion}"
+        
+        // ML Kit version consistency
+        force 'com.google.mlkit:text-recognition:16.0.1'
+        force 'com.google.mlkit:face-detection:16.1.6'
     }
 }
 
 dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
     
-    // ✅ Core Android dependencies - pinned to compatible versions
-    implementation "androidx.core:core:1.13.1"
-    implementation "androidx.core:core-ktx:1.13.1"
-    implementation "androidx.appcompat:appcompat:1.6.1"
-    implementation "androidx.coordinatorlayout:coordinatorlayout:1.2.0"
-    implementation "androidx.core:core-splashscreen:1.0.1"
+    // ✅ Keep your existing AndroidX dependencies - they're excellent
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
+    implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
     
-    // ✅ Kotlin dependencies
-    implementation "org.jetbrains.kotlin:kotlin-stdlib:1.9.20"
-    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3"
-    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3"
+    // ✅ NEW: Add missing AndroidX dependencies for ML Kit
+    implementation "androidx.core:core:$androidxCoreVersion"
+    implementation "androidx.core:core-ktx:$androidxCoreVersion"
+    implementation "androidx.activity:activity:$androidxActivityVersion"
+    implementation "androidx.fragment:fragment:$androidxFragmentVersion"
     
-    // ✅ Capacitor subprojects
+    // ✅ NEW: Kotlin support
+    implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:$coroutinesVersion"
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:$coroutinesVersion"
+    
+    // ✅ Keep your existing Capacitor dependencies
     implementation project(':capacitor-android')
     implementation project(':capacitor-cordova-android-plugins')
-    implementation project(':capacitor-camera')
-    implementation project(':capacitor-device')
     
-    // ✅ CRITICAL FIX: ML Kit dependencies with compatible versions
-    implementation 'com.google.mlkit:face-detection:16.1.6'
-    implementation 'com.google.mlkit:text-recognition:16.0.0'  // Use stable version
+    // ✅ NEW: ML Kit dependencies for your identity verification features
+    implementation "com.google.mlkit:face-detection:$mlkitFaceDetectionVersion"
+    implementation "com.google.mlkit:text-recognition:$mlkitTextRecognitionVersion"
     
-    // ✅ Alternative: Use Play Services ML Kit for better compatibility
-    implementation 'com.google.android.gms:play-services-mlkit-face-detection:17.1.0'
-    implementation 'com.google.android.gms:play-services-mlkit-text-recognition:19.0.1'
+    // ✅ NEW: Camera X for ML Kit
+    implementation "androidx.camera:camera-core:$cameraVersion"
+    implementation "androidx.camera:camera-camera2:$cameraVersion"
+    implementation "androidx.camera:camera-lifecycle:$cameraVersion"
+    implementation "androidx.camera:camera-view:$cameraVersion"
     
-    // ✅ Camera dependencies for ML Kit
-    implementation 'androidx.camera:camera-core:1.3.4'
-    implementation 'androidx.camera:camera-camera2:1.3.4'
-    implementation 'androidx.camera:camera-lifecycle:1.3.4'
-    implementation 'androidx.camera:camera-view:1.3.4'
+    // ✅ NEW: Material Design and Constraint Layout
+    implementation "com.google.android.material:material:$materialVersion"
+    implementation "androidx.constraintlayout:constraintlayout:$constraintLayoutVersion"
     
-    // ✅ Standard Android libraries
-    implementation 'com.google.android.material:material:1.12.0'
-    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
-    
-    // ✅ Testing dependencies
-    testImplementation 'junit:junit:4.13.2'
-    androidTestImplementation 'androidx.test.ext:junit:1.1.5'
-    androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
+    // ✅ Keep your existing test dependencies
+    testImplementation "junit:junit:$junitVersion"
+    androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
 }
 
-// Apply Capacitor configuration
+// ✅ Keep your existing Capacitor configuration
 apply from: 'capacitor.build.gradle'
+
+// ✅ Keep your existing Google services configuration - it's perfect
+try {
+    def servicesJSON = file('google-services.json')
+    if (servicesJSON.text) {
+        apply plugin: 'com.google.gms.google-services'
+    }
+} catch(Exception e) {
+    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+}
