@@ -1,3 +1,11 @@
+import android.nfc.NfcAdapter
+import android.nfc.Tag
+import android.nfc.tech.IsoDep
+import android.graphics.Bitmap
+import android.util.Base64
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
+
 @CapacitorPlugin(name = "NFCPassportReader")
 class NFCPassportReaderPlugin : Plugin() {
     
