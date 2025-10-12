@@ -1,34 +1,24 @@
+// android/variables.gradle
+
 ext {
-    // ✅ CRITICAL: Your existing SDK versions are PERFECT - keep them
-    minSdkVersion = 23
+    minSdkVersion = 22
+    // ↓↓ THE FIX IS HERE ↓↓
     compileSdkVersion = 35
     targetSdkVersion = 35
-    
-    // ✅ Your existing AndroidX versions are GREAT - keeping them
-    androidxActivityVersion = '1.9.2'
-    androidxAppCompatVersion = '1.7.0'
+    // ↑↑ UPDATED FROM 34 to 35 ↑↑
+    androidxActivityVersion = '1.8.2'
+    androidxAppCompatVersion = '1.6.1'
     androidxCoordinatorLayoutVersion = '1.2.0'
-    androidxCoreVersion = '1.15.0'
-    androidxFragmentVersion = '1.8.4'
-    androidxWebkitVersion = '1.12.1'
-    
-    // ✅ Your existing core versions - keeping them
+    androidxCoreVersion = '1.12.0'
+    androidxFragmentVersion = '1.6.2'
     coreSplashScreenVersion = '1.0.1'
-    cordovaAndroidVersion = '10.1.1'
-    
-    // ✅ Your existing test versions - keeping them  
+    androidxWebkitVersion = '1.10.0'
     junitVersion = '4.13.2'
-    androidxJunitVersion = '1.2.1'
-    androidxEspressoCoreVersion = '3.6.1'
-    
-    // ✅ NEW: Adding Kotlin and ML Kit versions for your plugins
-    kotlin_version = '2.0.21'  // Latest stable for AGP 8.7.2
-    mlkitFaceDetectionVersion = '16.1.6'
-    mlkitTextRecognitionVersion = '16.0.1'
-    coroutinesVersion = '1.9.0'
-    cameraVersion = '1.4.0'
-    
-    // ✅ NEW: Material Design version
-    materialVersion = '1.12.0'
-    constraintLayoutVersion = '2.2.0'
+    androidxJunitVersion = '1.1.5'
+    androidxEspressoCoreVersion = '3.5.1'
+    cordovaAndroidVersion = '10.1.1'
+    capacitorVersion = '5.5.1'
+    kotlinVersion = '1.9.22'
+    // It's also a good idea to update the Android Gradle Plugin version for compatibility
+    agpVersion = '8.4.1'
 }

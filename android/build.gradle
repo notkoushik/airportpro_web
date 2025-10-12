@@ -1,14 +1,11 @@
-// ✅ CRITICAL FIX: Modern plugins approach - no more buildscript!
+// This code is CORRECT. Use this version.
 plugins {
-    id 'com.android.application' version '8.7.2' apply false
-    id 'org.jetbrains.kotlin.android' version '2.0.21' apply false
-    id 'com.google.gms.google-services' version '4.4.2' apply false
+    id 'com.android.application' version '8.2.1' apply false // Using the version from your variables.gradle
+    id 'org.jetbrains.kotlin.android' version '1.9.22' apply false // Using the version from your variables.gradle
 }
 
 // ✅ Apply your existing variables
 apply from: "variables.gradle"
-
-// ✅ CRITICAL: Remove allprojects{} block - settings.gradle handles repositories now
 
 // ✅ Keep your existing clean task
 tasks.register('clean', Delete) {
