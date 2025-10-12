@@ -4,7 +4,7 @@ plugins {
 }
 
 // ✅ CRITICAL: Set Java toolchain to enforce JVM 21 everywhere
-java {
+java +{
     toolchain {
         languageVersion = JavaLanguageVersion.of(21)
     }
@@ -69,6 +69,7 @@ dependencies {
     implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
     implementation project(':capacitor-android')
+    implementation "com.getcapacitor:android:$capacitorVersion"
     
     // ML Kit Dependencies - FIXED VERSIONS
     implementation 'com.google.mlkit:face-detection:16.1.6'

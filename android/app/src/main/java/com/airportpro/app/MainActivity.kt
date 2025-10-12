@@ -1,155 +1,79 @@
 package com.airportpro.app
 
-import android.os.Bundle
+import com.getcapacitor.Plugin
+import com.getcapacitor.PluginCall
+import com.getcapacitor.PluginMethod
+import com.getcapacitor.annotation.CapacitorPlugin
+import com.getcapacitor.JSObject
 import android.nfc.NfcAdapter
-import android.nfc.Tag
-import android.nfc.tech.IsoDep
-import android.content.Intent
 import android.util.Log
-import android.app.PendingIntent
-import android.content.IntentFilter
-import com.getcapacitor.BridgeActivity
 
-class MainActivity : BridgeActivity() {
-
-    companion object {
-        private const val TAG = "MainActivity"
-    }
+@CapacitorPlugin(name = "CapacitorCustomNative") // IMPORTANT: Name must match what you call in JS
+class NFCPassportReaderPlugin : Plugin() {
 
     private var nfcAdapter: NfcAdapter? = null
-    private var pendingIntent: PendingIntent? = null
-    private var intentFiltersArray: Array<IntentFilter>? = null
-    private var techListsArray: Array<Array<String>>? = null
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
+    companion object {
+        private const val TAG = "NFCPassportReaderPlugin"
+    }
 
-        // ✅ CRITICAL: Register your custom ML Kit plugins
-        try {
-            registerPlugin(LivenessPlugin::class.java)
-            registerPlugin(PassportScannerPlugin::class.java)
-            registerPlugin(NFCPassportReaderPlugin::class.java)
-            Log.i(TAG, "AirportPro plugins registered successfully")
-        } catch (e: Exception) {
-            Log.e(TAG, "Error registering plugins", e)
+    override fun load() {
+        super.load()
+        nfcAdapter = NfcAdapter.getDefaultAdapter(context)
+    }
+
+    @PluginMethod
+    fun checkNFCSupport(call: PluginCall) {
+        if (nfcAdapter == null) {
+            Log.w(TAG, "NFC is not supported on this device.")
+            val result = JSObject().put("supported", false)
+            call.resolve(result)
+            return
         }
 
-        // Initialize NFC for passport reading
-        initializeNFC()
+        val result = JSObject()
+        result.put("supported", true)
+        result.put("enabled", nfcAdapter?.isEnabled == true)
+        Log.i(TAG, "NFC Supported: true, Enabled: ${nfcAdapter?.isEnabled}")
+        call.resolve(result)
+    }
+
+    @PluginMethod
+    fun readNFCPassport(call: PluginCall) {
+        Log.d(TAG, "readNFCPassport called")
         
-        Log.i(TAG, "AirportPro MainActivity initialized")
-    }
-
-    private fun initializeNFC() {
-        try {
-            nfcAdapter = NfcAdapter.getDefaultAdapter(this)
-            
-            when {
-                nfcAdapter == null -> {
-                    Log.w(TAG, "NFC not available on this device")
-                }
-                nfcAdapter?.isEnabled != true -> {
-                    Log.w(TAG, "NFC available but disabled")
-                }
-                else -> {
-                    Log.i(TAG, "NFC ready for passport reading")
-                    setupNFCIntents()
-                }
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error initializing NFC", e)
+        // Phase 1: Check required data from MRZ scan
+        val documentNumber = call.getString("documentNumber")
+        if (documentNumber.isNullOrEmpty()) {
+            call.reject("MRZ data is incomplete. Document number is missing.")
+            return
         }
-    }
-
-    private fun setupNFCIntents() {
-        try {
-            // Setup NFC intent detection
-            pendingIntent = PendingIntent.getActivity(
-                this, 0,
-                Intent(this, javaClass).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
-            )
-
-            // Configure for passport chip detection
-            val techDiscovered = IntentFilter(NfcAdapter.ACTION_TECH_DISCOVERED)
-            intentFiltersArray = arrayOf(techDiscovered)
-            techListsArray = arrayOf(arrayOf(IsoDep::class.java.name))
-            
-            Log.d(TAG, "NFC intents configured for passport detection")
-        } catch (e: Exception) {
-            Log.e(TAG, "Error setting up NFC", e)
-        }
-    }
-
-    // ✅ FIX 1: Proper override signature
-    override fun onNewIntent(intent: Intent) {
-        super.onNewIntent(intent)
         
-        // ✅ FIX 2: Handle non-null intent properly  
-        if (NfcAdapter.ACTION_TECH_DISCOVERED == intent.action) {
-            val tag = intent.getParcelableExtra<Tag>(NfcAdapter.EXTRA_TAG)
-            tag?.let {
-                Log.i(TAG, "Passport chip detected")
-                handlePassportChip(it)
-            }
-        }
-    }
-
-    override fun onResume() {
-        super.onResume()
+        // --- THIS IS WHERE YOUR REAL NFC LOGIC WILL GO ---
+        // For now, we will return a mock success response after a short delay
+        // to prove the connection between React and Kotlin is working.
         
-        nfcAdapter?.let { adapter ->
-            if (adapter.isEnabled && pendingIntent != null) {
-                try {
-                    adapter.enableForegroundDispatch(
-                        this, pendingIntent, intentFiltersArray, techListsArray
-                    )
-                    Log.d(TAG, "NFC foreground dispatch enabled")
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error enabling NFC dispatch", e)
-                }
-            }
-        }
-    }
+        Thread.sleep(2000) // Simulate a 2-second NFC read time
 
-    override fun onPause() {
-        super.onPause()
+        val mockPassportData = JSObject()
+        val basicInfo = JSObject()
+        basicInfo.put("documentType", "P")
+        basicInfo.put("issuingCountry", "SGP")
+        basicInfo.put("documentNumber", documentNumber)
+        basicInfo.put("surname", "TAN")
+        basicInfo.put("givenNames", "AH KOW")
+        basicInfo.put("nationality", "Singapore")
+        basicInfo.put("dateOfBirth", "800101")
+        basicInfo.put("gender", "Male")
+        basicInfo.put("dateOfExpiry", "300101")
         
-        nfcAdapter?.let { adapter ->
-            if (adapter.isEnabled) {
-                try {
-                    adapter.disableForegroundDispatch(this)
-                    Log.d(TAG, "NFC foreground dispatch disabled")
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error disabling NFC dispatch", e)
-                }
-            }
-        }
-    }
-
-    private fun handlePassportChip(tag: Tag) {
-        val isoDep = IsoDep.get(tag)
-        if (isoDep != null) {
-            Log.i(TAG, "Valid passport chip detected")
-            
-            // Send event to React layer
-            bridge?.let { bridge ->
-                try {
-                    // ✅ FIX 3: Convert Map to JSON string for triggerWindowJSEvent
-                    val nfcData = """
-                        {
-                            "tagId": "${tag.id.joinToString(":") { "%02x".format(it) }}",
-                            "isPassportChip": true,
-                            "timestamp": ${System.currentTimeMillis()}
-                        }
-                    """.trimIndent()
-                    
-                    bridge.triggerWindowJSEvent("nfcPassportDetected", nfcData)
-                    Log.d(TAG, "NFC event sent to React layer")
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error sending NFC event", e)
-                }
-            }
-        }
+        mockPassportData.put("basicInfo", basicInfo)
+        
+        val response = JSObject()
+        response.put("success", true)
+        response.put("data", mockPassportData)
+        
+        Log.i(TAG, "Successfully returned MOCK passport data.")
+        call.resolve(response)
     }
 }
