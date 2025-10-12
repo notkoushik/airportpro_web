@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import MLKitCameraFeed from "@/components/MLKitCameraFeed";
 import { AirportProPlugins, PassportData } from "@/lib/capacitor-plugins";
 
+
 interface EnrollmentData {
   passportData?: PassportData;
   passportImage?: string;

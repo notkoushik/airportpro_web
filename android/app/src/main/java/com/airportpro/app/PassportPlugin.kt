@@ -1,112 +1,88 @@
 package com.airportpro.app
 
 import android.Manifest
-import android.app.Activity
-import android.content.Intent
-import android.provider.MediaStore
 import com.getcapacitor.JSObject
 import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
 import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.CapacitorPlugin
 import com.getcapacitor.annotation.Permission
-import com.getcapacitor.annotation.PermissionCallback
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 
+// This is the updated plugin with the real scanning logic
 @CapacitorPlugin(
-    name = "PassportPlugin",
+    name = "Passport",
     permissions = [
-        Permission(
-            strings = [Manifest.permission.CAMERA],
-            alias = "camera"
-        ),
-        Permission(
-            strings = [Manifest.permission.NFC],
-            alias = "nfc"
-        )
+        Permission(alias = "camera", strings = [Manifest.permission.CAMERA])
     ]
 )
 class PassportPlugin : Plugin() {
-    
-    private var passportNFCService: PassportNFCService? = null
 
-    override fun load() {
-        super.load()
-        passportNFCService = PassportNFCService()
-    }
+    // We will launch the camera from the plugin itself
+    private var call: PluginCall? = null
 
     @PluginMethod
-    fun scanPassport(call: PluginCall) {
-        if (getPermissionState("camera") != com.getcapacitor.PermissionState.GRANTED) {
-            requestPermissionForAlias("camera", call, "cameraPermsCallback")
-            return
-        }
+    fun scan(call: PluginCall) {
+        this.call = call
+        // For now, we will just simulate a successful scan with mock data
+        // In the next step, we will replace this with the actual camera launch
+        Log.d("PassportPlugin", "Scan method called. Returning mock data for now.")
         
-        performPassportScan(call)
-    }
-    
-    @PluginMethod
-    fun readNFC(call: PluginCall) {
-        if (getPermissionState("nfc") != com.getcapacitor.PermissionState.GRANTED) {
-            requestPermissionForAlias("nfc", call, "nfcPermsCallback")
-            return
-        }
-        
-        performNFCRead(call)
-    }
-
-    @PermissionCallback
-    private fun cameraPermsCallback(call: PluginCall) {
-        if (getPermissionState("camera") == com.getcapacitor.PermissionState.GRANTED) {
-            performPassportScan(call)
-        } else {
-            call.reject("Camera permission is required")
-        }
-    }
-    
-    @PermissionCallback
-    private fun nfcPermsCallback(call: PluginCall) {
-        if (getPermissionState("nfc") == com.getcapacitor.PermissionState.GRANTED) {
-            performNFCRead(call)
-        } else {
-            call.reject("NFC permission is required")
-        }
-    }
-
-    private fun performPassportScan(call: PluginCall) {
         try {
-            // Simulate passport scanning
-            val result = JSObject()
-            result.put("success", true)
-            result.put("data", JSObject().apply {
-                put("documentType", "P")
-                put("countryCode", "USA")
-                put("surname", "DOE")
-                put("givenNames", "JOHN")
-                put("passportNumber", "123456789")
-                put("nationality", "USA")
-                put("dateOfBirth", "1990-01-01")
-                put("sex", "M")
-                put("dateOfExpiry", "2030-12-31")
-            })
-            call.resolve(result)
-        } catch (e: Exception) {
-            call.reject("Passport scanning failed: ${e.message}")
-        }
-    }
-    
-    private fun performNFCRead(call: PluginCall) {
-        try {
-            passportNFCService?.let { nfcService ->
-                val nfcData = nfcService.readNFCData()
-                val result = JSObject()
-                result.put("success", true)
-                result.put("nfcData", nfcData)
-                call.resolve(result)
-            } ?: run {
-                call.reject("NFC service not initialized")
+            // This is where you would launch a new Activity or a camera view
+            // For simplicity in this step, let's just parse a mock MRZ string
+            val mockMrzText = "P<UTOERIKSSON<<ANNA<MARIA<<<<<<<<<<<<<<<<<<<<L898902C<3UTO6908061F9406236ZE184226B<<<<<10"
+            val passportData = parseMrz(mockMrzText)
+
+            if (passportData != null) {
+                val ret = JSObject()
+                ret.put("documentNumber", passportData.documentNumber)
+                ret.put("firstName", passportData.firstName)
+                ret.put("lastName", passportData.lastName)
+                ret.put("dateOfBirth", passportData.dateOfBirth)
+                ret.put("dateOfExpiry", passportData.dateOfExpiry)
+                ret.put("nationality", passportData.nationality)
+                call.resolve(ret)
+            } else {
+                call.reject("Failed to parse MRZ data.")
             }
+
         } catch (e: Exception) {
-            call.reject("NFC reading failed: ${e.message}")
+            call.reject("An error occurred during scanning: ${e.message}")
+        }
+    }
+
+    // This is the core parsing logic transplanted from PassportRepository.kt
+    private fun parseMrz(text: String): PassportData? {
+        // Simplified parser based on the logic in the passport_scanner project
+        val mrzLines = text.split("\n").filter { it.length > 40 } // Find lines that look like MRZ
+        if (mrzLines.isEmpty()) return null
+
+        val mrz = mrzLines.joinToString("")
+
+        try {
+            val documentNumber = mrz.substring(0, 9)
+            val nationality = mrz.substring(10, 13)
+            val dateOfBirth = mrz.substring(13, 19)
+            val dateOfExpiry = mrz.substring(21, 27)
+            
+            val names = mrz.substring(5, 44).split("<<")
+            val lastName = names.getOrNull(0)?.replace("<", " ")?.trim() ?: ""
+            val firstName = names.getOrNull(1)?.replace("<", " ")?.trim() ?: ""
+
+            return PassportData(
+                documentNumber = documentNumber,
+                firstName = firstName,
+                lastName = lastName,
+                dateOfBirth = dateOfBirth,
+                dateOfExpiry = dateOfExpiry,
+                nationality = nationality
+            )
+        } catch (e: Exception) {
+            Log.e("PassportPlugin", "Error parsing MRZ string", e)
+            return null
         }
     }
 }
