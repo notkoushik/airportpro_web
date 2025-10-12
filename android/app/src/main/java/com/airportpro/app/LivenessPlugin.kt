@@ -18,6 +18,7 @@ import android.util.Log
 import kotlinx.coroutines.*
 import kotlin.math.abs
 
+
 @CapacitorPlugin(name = "LivenessPlugin")
 class LivenessPlugin : Plugin() {
 
