@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- Exclude files that should not be backed up -->
+    <exclude domain="sharedpref" path="device.xml"/>
+    <exclude domain="database" path="example_database"/>
+    <exclude domain="file" path="example_file.txt"/>
+    <exclude domain="external" path="example_external_file.txt"/>
+    <!-- By default, backup all other files -->
+</full-backup-content>

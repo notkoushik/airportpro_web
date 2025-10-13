@@ -9,7 +9,7 @@ android {
 
     defaultConfig {
         applicationId "io.airportpro.web"
-        minSdk 23  // CRITICAL: Changed from 22 to 23
+        minSdk 23
         targetSdk 35
         versionCode 1
         versionName "1.0"
@@ -58,19 +58,48 @@ android {
         exclude 'META-INF/LICENSE.txt'
         exclude 'META-INF/NOTICE'
         exclude 'META-INF/NOTICE.txt'
+        // Additional packaging options for BouncyCastle
+        exclude 'META-INF/versions/9/OSGI-INF/MANIFEST.MF'
     }
 }
 
 apply from: 'capacitor.build.gradle'
 
 dependencies {
+    // Core Android dependencies
     implementation 'androidx.core:core-ktx:1.13.1'
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.9.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+    
+    // Capacitor dependencies
     implementation project(':capacitor-android')
     implementation project(':capacitor-camera')
     implementation project(':capacitor-device')
+    
+    // CRITICAL: Add missing ML Kit dependencies for face and text recognition
+    implementation 'com.google.mlkit:face-detection:16.1.5'
+    implementation 'com.google.mlkit:text-recognition:16.0.0'
+    implementation 'com.google.android.gms:play-services-mlkit-text-recognition:19.0.0'
+    
+    // CRITICAL: Add BouncyCastle for cryptographic operations
+    implementation 'org.bouncycastle:bcprov-jdk15on:1.70'
+    implementation 'org.bouncycastle:bcpkix-jdk15on:1.70'
+    
+    // CRITICAL: Add JMRTD library for passport reading
+    implementation 'org.jmrtd:jmrtd:0.7.34'
+    implementation 'net.sf.scuba:scuba-sc-android:0.0.23'
+    
+    // CRITICAL: Add Android Architecture Components for ViewModel
+    implementation 'androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0'
+    implementation 'androidx.lifecycle:lifecycle-livedata-ktx:2.7.0'
+    implementation 'androidx.activity:activity-ktx:1.8.2'
+    
+    // CRITICAL: Add Kotlin coroutines for async operations
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3'
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3'
+    
+    // Test dependencies
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'

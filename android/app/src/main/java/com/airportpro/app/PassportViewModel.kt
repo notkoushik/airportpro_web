@@ -1,5 +1,4 @@
-package com.example.passportreaderdemo
-
+package com.airportpro.app
 import android.nfc.tech.IsoDep
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
