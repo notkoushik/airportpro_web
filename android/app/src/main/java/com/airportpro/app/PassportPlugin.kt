@@ -11,6 +11,8 @@ import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import android.util.Base64
+import android.util.Log
+
 import java.io.ByteArrayOutputStream
 
 // This is the updated plugin with the real scanning logic
