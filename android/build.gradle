@@ -1,13 +1,49 @@
-// This code is CORRECT. Use this version.
-plugins {
-    id 'com.android.application' version '8.2.1' apply false // Using the version from your variables.gradle
-    id 'org.jetbrains.kotlin.android' version '1.9.22' apply false // Using the version from your variables.gradle
+buildscript {
+    ext {
+        buildToolsVersion = "34.0.0"
+        minSdkVersion = 24
+        compileSdkVersion = 34
+        targetSdkVersion = 34
+        kotlinVersion = '1.9.24'
+        
+        // ✅ FORCE Java 17 globally
+        javaVersion = JavaVersion.VERSION_17
+        
+        // Android Jetpack versions
+        androidxActivityVersion = '1.9.2'
+        androidxAppCompatVersion = '1.7.0'
+        androidxCoordinatorLayoutVersion = '1.2.0'
+        androidxCoreVersion = '1.13.1'
+        androidxFragmentVersion = '1.8.4'
+    }
+    
+    repositories {
+        google()
+        mavenCentral()
+        maven { url 'https://www.jitpack.io' }
+    }
+    
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.7.2'
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion"
+    }
 }
 
-// ✅ Apply your existing variables
-apply from: "variables.gradle"
+// ✅ Force Java 17 for ALL projects
+allprojects {
+    tasks.withType(JavaCompile).configureEach {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+        options.release = 17
+    }
+    
+    tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+        kotlinOptions {
+            jvmTarget = '17'
+        }
+    }
+}
 
-// ✅ Keep your existing clean task
-tasks.register('clean', Delete) {
+task clean(type: Delete) {
     delete rootProject.buildDir
 }

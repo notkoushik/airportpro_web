@@ -7,22 +7,18 @@ pluginManagement {
 }
 
 dependencyResolutionManagement {
-    // ✅ CRITICAL FIX: Change to PREFER_SETTINGS to allow Capacitor compatibility
     repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
     repositories {
         google()
         mavenCentral()
-        // ML Kit repositories for your identity verification features
-        maven { url "https://dl.google.com/dl/android/maven2/" }
-        maven { url "https://maven.google.com" }
+        maven { url 'https://www.jitpack.io' }
+        maven { url 'https://maven.google.com' }
     }
 }
 
-rootProject.name = "android"
-
 include ':app'
-include ':capacitor-cordova-android-plugins'
-project(':capacitor-cordova-android-plugins').projectDir = new File('./capacitor-cordova-android-plugins/')
+include ':capacitor-android'
+project(':capacitor-android').projectDir = new File('../node_modules/@capacitor/android/capacitor')
 
-// Apply Capacitor settings
+// Auto-generated Capacitor settings
 apply from: 'capacitor.settings.gradle'
