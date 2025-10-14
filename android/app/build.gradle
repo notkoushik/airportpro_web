@@ -25,6 +25,7 @@ android {
         }
     }
 
+    // ✅ CRITICAL: Force Java 17 explicitly
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
@@ -32,6 +33,14 @@ android {
 
     kotlinOptions {
         jvmTarget = '17'
+    }
+
+    // ✅ CRITICAL: Override any Java compilation
+    tasks.withType(JavaCompile) {
+        options.release = null
+        options.compilerArgs.removeAll { it.startsWith("--release") }
+        sourceCompatibility = '17'
+        targetCompatibility = '17'
     }
 
     packagingOptions {
@@ -49,13 +58,10 @@ dependencies {
     implementation "androidx.activity:activity-ktx:${androidxActivityVersion}"
     implementation "androidx.fragment:fragment-ktx:${androidxFragmentVersion}"
 
-    // ✅ FIXED: Only include modules that actually exist
+    // Capacitor modules
     implementation project(':capacitor-android')
     implementation project(':capacitor-camera')
     implementation project(':capacitor-device')
-    
-    // ✅ REMOVED: This line was causing the error
-    // implementation project(':capacitor-cordova-android-plugins')  // ❌ This doesn't exist
 
     // Test dependencies
     testImplementation "junit:junit:${junitVersion}"

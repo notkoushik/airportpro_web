@@ -9,8 +9,37 @@ buildscript {
     }
 }
 
-// ✅ REMOVE allprojects block entirely - conflicts with settings.gradle
 apply from: "variables.gradle"
+
+// ✅ CRITICAL: Force Java 17 for ALL subprojects
+allprojects {
+    // ✅ FORCE Java 17 compilation
+    afterEvaluate { project ->
+        if (project.hasProperty("android")) {
+            project.android {
+                compileOptions {
+                    sourceCompatibility JavaVersion.VERSION_17
+                    targetCompatibility JavaVersion.VERSION_17
+                }
+            }
+        }
+        
+        // ✅ OVERRIDE any Java compilation tasks
+        project.tasks.withType(JavaCompile) {
+            options.release = null
+            options.compilerArgs.removeAll { it.startsWith("--release") }
+            sourceCompatibility = '17'
+            targetCompatibility = '17'
+        }
+        
+        // ✅ FORCE Kotlin compilation
+        project.tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile) {
+            kotlinOptions {
+                jvmTarget = '17'
+            }
+        }
+    }
+}
 
 task clean(type: Delete) {
     delete rootProject.buildDir
