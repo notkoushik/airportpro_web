@@ -1,20 +1,20 @@
 ext {
-    minSdkVersion = 23  // ✅ Increased from 22
-    compileSdkVersion = 34
-    targetSdkVersion = 34
+    minSdkVersion = 23
+    compileSdkVersion = 34  // ✅ Keep at 34 for Capacitor 6.x compatibility
+    targetSdkVersion = 34   // ✅ Keep at 34 for Capacitor 6.x compatibility
     
     // Keep libs consistent with latest stable versions
-    androidxCoreVersion = '1.13.1'  // ✅ Updated
+    androidxCoreVersion = '1.13.1'
     coreSplashScreenVersion = '1.0.1'
-    androidxAppCompatVersion = '1.7.0'  // ✅ Updated
-    androidxActivityVersion = '1.9.2'  // ✅ Updated
-    androidxFragmentVersion = '1.8.4'  // ✅ Updated
+    androidxAppCompatVersion = '1.7.0'
+    androidxActivityVersion = '1.9.2'
+    androidxFragmentVersion = '1.8.4'
     androidxCoordinatorLayoutVersion = '1.2.0'
-    androidxWebkitVersion = '1.11.0'  // ✅ Updated
+    androidxWebkitVersion = '1.11.0'
     
     junitVersion = '4.13.2'
-    androidxJunitVersion = '1.2.1'  // ✅ Updated
-    androidxEspressoCoreVersion = '3.6.1'  // ✅ Updated
+    androidxJunitVersion = '1.2.1'
+    androidxEspressoCoreVersion = '3.6.1'
     
     // Align with AGP 8.7.2
     kotlin_version = '1.9.24'
