@@ -233,4 +233,3 @@ class PassportScannerPlugin : Plugin() {
             "Avoid shadows and reflections"
         )
     }
-

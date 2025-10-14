@@ -1,21 +1,26 @@
 package com.airportpro.app
 
+// --- SOLUTION: ADD ALL NECESSARY IMPORTS ---
 import android.Manifest
+import android.content.Intent
+import android.graphics.Bitmap
+import android.provider.MediaStore
+import android.util.Base64
+import android.util.Log
+import androidx.activity.result.ActivityResult
 import com.getcapacitor.JSObject
 import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
 import com.getcapacitor.PluginMethod
+import com.getcapacitor.annotation.ActivityResultCallback
 import com.getcapacitor.annotation.CapacitorPlugin
 import com.getcapacitor.annotation.Permission
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
-import android.util.Base64
-import android.util.Log
-
 import java.io.ByteArrayOutputStream
+// --- END OF IMPORTS ---
 
-// This is the updated plugin with the real scanning logic
 @CapacitorPlugin(
     name = "Passport",
     permissions = [
@@ -24,68 +29,102 @@ import java.io.ByteArrayOutputStream
 )
 class PassportPlugin : Plugin() {
 
-    // We will launch the camera from the plugin itself
-    private var call: PluginCall? = null
-
     @PluginMethod
     fun scan(call: PluginCall) {
-        this.call = call
-        // For now, we will just simulate a successful scan with mock data
-        // In the next step, we will replace this with the actual camera launch
-        Log.d("PassportPlugin", "Scan method called. Returning mock data for now.")
+        // Create a valid Intent to launch the device's camera for image capture
+        val cameraIntent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
         
-        try {
-            // This is where you would launch a new Activity or a camera view
-            // For simplicity in this step, let's just parse a mock MRZ string
-            val mockMrzText = "P<UTOERIKSSON<<ANNA<MARIA<<<<<<<<<<<<<<<<<<<<L898902C<3UTO6908061F9406236ZE184226B<<<<<10"
-            val passportData = parseMrz(mockMrzText)
-
-            if (passportData != null) {
-                val ret = JSObject()
-                ret.put("documentNumber", passportData.documentNumber)
-                ret.put("firstName", passportData.firstName)
-                ret.put("lastName", passportData.lastName)
-                ret.put("dateOfBirth", passportData.dateOfBirth)
-                ret.put("dateOfExpiry", passportData.dateOfExpiry)
-                ret.put("nationality", passportData.nationality)
-                call.resolve(ret)
-            } else {
-                call.reject("Failed to parse MRZ data.")
-            }
-
-        } catch (e: Exception) {
-            call.reject("An error occurred during scanning: ${e.message}")
-        }
+        // This launches the camera and tells Capacitor to call the 'processCameraImage' function with the result
+        startActivityForResult(call, cameraIntent, "processCameraImage")
     }
 
-    // This is the core parsing logic transplanted from PassportRepository.kt
-    private fun parseMrz(text: String): PassportData? {
-        // Simplified parser based on the logic in the passport_scanner project
-        val mrzLines = text.split("\n").filter { it.length > 40 } // Find lines that look like MRZ
-        if (mrzLines.isEmpty()) return null
+    @ActivityResultCallback
+    private fun processCameraImage(call: PluginCall, result: ActivityResult) {
+        if (result.data == null || result.data!!.extras == null) {
+            call.reject("User cancelled the camera or no image data was returned.")
+            return
+        }
 
-        val mrz = mrzLines.joinToString("")
+        val bitmap = result.data!!.extras!!.get("data") as? Bitmap
+        if (bitmap == null) {
+            call.reject("Failed to retrieve a valid image from the camera.")
+            return
+        }
 
+        val image = InputImage.fromBitmap(bitmap, 0)
+        val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+
+        recognizer.process(image)
+            .addOnSuccessListener { visionText ->
+                val mrzText = findMrz(visionText.text)
+                if (mrzText != null) {
+                    val passportData = parseMrz(mrzText)
+                    if (passportData != null) {
+                        val imageBase64 = bitmapToBase64(bitmap)
+                        
+                        val ret = JSObject()
+                        ret.put("documentNumber", passportData.documentNumber)
+                        ret.put("firstName", passportData.firstName)
+                        ret.put("lastName", passportData.lastName)
+                        ret.put("dateOfBirth", passportData.dateOfBirth)
+                        ret.put("dateOfExpiry", passportData.dateOfExpiry)
+                        ret.put("nationality", passportData.nationality)
+                        ret.put("passportImage", imageBase64)
+                        
+                        call.resolve(ret)
+                    } else {
+                        call.reject("MRZ text was found but could not be parsed. Please try again with a clearer image.")
+                    }
+                } else {
+                    call.reject("No Machine-Readable Zone (MRZ) was found. Please ensure the two lines at the bottom of the passport are clearly visible.")
+                }
+            }
+            .addOnFailureListener { e ->
+                call.reject("ML Kit text recognition failed.", e)
+            }
+    }
+
+    private fun bitmapToBase64(bitmap: Bitmap): String {
+        val byteArrayOutputStream = ByteArrayOutputStream()
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 90, byteArrayOutputStream)
+        val byteArray = byteArrayOutputStream.toByteArray()
+        return Base64.encodeToString(byteArray, Base64.DEFAULT)
+    }
+
+    private fun findMrz(text: String): String? {
+        val lines = text.split("\n")
+        // A valid MRZ has at least two lines of 44 characters
+        val potentialMrzLines = lines.filter { it.replace(" ", "").replace("<", "").length >= 44 }
+        return if (potentialMrzLines.size >= 2) {
+            potentialMrzLines.take(2).joinToString("\n")
+        } else {
+            null
+        }
+    }
+    
+    private fun parseMrz(mrzBlock: String): PassportData? {
         try {
-            val documentNumber = mrz.substring(0, 9)
-            val nationality = mrz.substring(10, 13)
-            val dateOfBirth = mrz.substring(13, 19)
-            val dateOfExpiry = mrz.substring(21, 27)
+            val lines = mrzBlock.split("\n")
+            if (lines.size < 2) return null
+
+            val line1 = lines[0].replace(" ", "")
+            val line2 = lines[1].replace(" ", "")
+
+            if (line2.length < 44) return null
             
-            val names = mrz.substring(5, 44).split("<<")
+            val documentNumber = line2.substring(0, 9).replace('<', ' ').trim()
+            val nationality = line2.substring(10, 13).replace('<', ' ').trim()
+            val dateOfBirth = line2.substring(13, 19)
+            val dateOfExpiry = line2.substring(21, 27)
+            
+            val namePart = line1.substring(5, 44)
+            val names = namePart.split("<<")
             val lastName = names.getOrNull(0)?.replace("<", " ")?.trim() ?: ""
             val firstName = names.getOrNull(1)?.replace("<", " ")?.trim() ?: ""
 
-            return PassportData(
-                documentNumber = documentNumber,
-                firstName = firstName,
-                lastName = lastName,
-                dateOfBirth = dateOfBirth,
-                dateOfExpiry = dateOfExpiry,
-                nationality = nationality
-            )
+            return PassportData(documentNumber, firstName, lastName, dateOfBirth, dateOfExpiry, nationality)
         } catch (e: Exception) {
-            Log.e("PassportPlugin", "Error parsing MRZ string", e)
+            Log.e("PassportPlugin", "Error parsing MRZ string: $mrzBlock", e)
             return null
         }
     }
