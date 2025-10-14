@@ -1,7 +1,7 @@
 ext {
     minSdkVersion = 23
-    compileSdkVersion = 34  // ✅ Keep at 34 for Capacitor 6.x compatibility
-    targetSdkVersion = 34   // ✅ Keep at 34 for Capacitor 6.x compatibility
+    compileSdkVersion = 34  // ✅ CONFIRMED: Capacitor 6.x uses SDK 34
+    targetSdkVersion = 34   // ✅ CONFIRMED: Capacitor 6.x uses SDK 34
     
     // Keep libs consistent with latest stable versions
     androidxCoreVersion = '1.13.1'

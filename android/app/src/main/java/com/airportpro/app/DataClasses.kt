@@ -2,6 +2,7 @@ package com.airportpro.app
 
 import android.graphics.Bitmap
 
+
 data class MrzInfo(
     val passportNumber: String,
     val dateOfBirth: String,
@@ -14,12 +15,14 @@ data class PassportData(
     val lastName: String,
     val dateOfBirth: String,
     val dateOfExpiry: String,
-    val nationality: String
+    val nationality: String,
+    val photo: String? = null
 )
 
-data class PassportDetails(
-    val mrz: String,
-    val photo: Bitmap?
+data class LivenessResult(
+    val isLive: Boolean,
+    val confidence: Float,
+    val photo: String? = null
 )
 
 sealed class UIState {
