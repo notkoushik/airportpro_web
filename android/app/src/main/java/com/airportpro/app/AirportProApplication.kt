@@ -1,8 +1,8 @@
 package com.airportpro.app
 
-import androidx.multidex.MultiDexApplication
+import androidx.multidx.MultiDxApplication
 
-class AirportProApplication : MultiDexApplication() {
+class AirportProApplication : MultiDxApplication() {
     override fun onCreate() {
         super.onCreate()
     }

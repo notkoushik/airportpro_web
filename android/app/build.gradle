@@ -40,34 +40,27 @@ android {
 
     packagingOptions {
         resources {
-            excludes += ['META-INF/LICENSE*', 'META-INF/AL2.0', 'META-INF/LGPL2.1', 'META-INF/DEPENDENCIES', 'META-INF/NOTICE*']
+            excludes += ['META-INF/LICENSE*', 'META-INF/AL2.0', 'META-INF/LGPL2.1', 'META-INF/DEPENDENCIES', 'META-INF/NOTICE*', 'META-INF/INDEX.LIST', 'META-INF/*.kotlin_module']
         }
     }
 }
 
 dependencies {
-    // ✅ FIXED: Correct multidex dependency (was multidx)
+    // ✅ CRITICAL: Correct multidex dependency
     implementation 'androidx.multidex:multidex:2.0.1'
     
-    // ✅ STREAMLINED: Only essential dependencies
+    // ✅ MINIMAL: Core Android dependencies only
     implementation "androidx.core:core-ktx:${androidxCoreVersion}"
     implementation "androidx.core:core-splashscreen:${coreSplashScreenVersion}"
     implementation "androidx.appcompat:appcompat:${androidxAppCompatVersion}"
-    implementation "androidx.activity:activity-ktx:${androidxActivityVersion}"
-    implementation "androidx.fragment:fragment-ktx:${androidxFragmentVersion}"
 
-    // ✅ CAPACITOR: Core modules only
+    // ✅ CAPACITOR: Core modules only 
     implementation project(':capacitor-android')
     implementation project(':capacitor-camera')
     implementation project(':capacitor-device')
 
-    // ✅ ESSENTIAL ONLY: Minimal ML Kit (for basic functionality)
-    implementation 'com.google.mlkit:face-detection:16.1.6'
-    implementation 'com.google.mlkit:text-recognition:16.0.0'
-
-    // ✅ REMOVED: Heavy dependencies causing build issues
-    // Temporarily removed BouncyCastle and JMRTD to get build working
-    // These can be added back individually after successful build
+    // ✅ REMOVED: ALL ML Kit dependencies temporarily to break transform loops
+    // Will add back after successful build
 
     // Test dependencies
     testImplementation "junit:junit:${junitVersion}"
