@@ -1,20 +1,21 @@
 // Top-level build file
 plugins {
     id 'com.android.application' version '8.7.2' apply false
-    id 'com.android.library' version '8.7.2' apply false
+    id 'com.android.library' version '8.7.2' apply false  
     id 'org.jetbrains.kotlin.android' version '1.9.24' apply false
 }
 
-// CRITICAL: Configure all projects to use Java 17
 allprojects {
     repositories {
         google()
         mavenCentral()
         gradlePluginPortal()
-        maven { url 'https://jitpack.io' }
+        maven { url 'https://www.jitpack.io' }
+        // ✅ ADD: BouncyCastle specific repository
+        maven { url 'https://repo1.maven.org/maven2/' }
     }
     
-    // Force Java 17 for ALL subprojects including Capacitor modules
+    // ✅ CRITICAL: Force Java 17 for ALL projects
     afterEvaluate { project ->
         if (project.hasProperty("android")) {
             project.android {
@@ -25,16 +26,23 @@ allprojects {
             }
         }
         
-        // Override any tasks that might try to use source release 21
+        // ✅ FORCE: Override Java compilation globally
         project.tasks.withType(JavaCompile) {
             options.release = null
             options.compilerArgs.removeAll { it.startsWith("--release") }
             sourceCompatibility = '17'
             targetCompatibility = '17'
         }
+        
+        // ✅ FORCE: Kotlin compilation consistency
+        project.tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile) {
+            kotlinOptions {
+                jvmTarget = '17'
+            }
+        }
     }
 }
 
-tasks.register("clean", Delete) {
+task clean(type: Delete) {
     delete rootProject.buildDir
 }

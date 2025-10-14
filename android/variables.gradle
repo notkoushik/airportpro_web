@@ -1,24 +1,29 @@
-// android/variables.gradle
-
 ext {
-    minSdkVersion = 22
-    // ↓↓ THE FIX IS HERE ↓↓
+    // ✅ CONSISTENT: SDK versions
+    minSdkVersion = 23  // Changed from 22 to 23
     compileSdkVersion = 35
     targetSdkVersion = 35
-    // ↑↑ UPDATED FROM 34 to 35 ↑↑
-    androidxActivityVersion = '1.8.2'
-    androidxAppCompatVersion = '1.6.1'
+    
+    // ✅ UPDATED: Latest stable versions
+    androidxActivityVersion = '1.9.2'
+    androidxAppCompatVersion = '1.7.0'
     androidxCoordinatorLayoutVersion = '1.2.0'
-    androidxCoreVersion = '1.12.0'
-    androidxFragmentVersion = '1.6.2'
+    androidxCoreVersion = '1.13.1'
+    androidxFragmentVersion = '1.8.4'
     coreSplashScreenVersion = '1.0.1'
-    androidxWebkitVersion = '1.10.0'
+    androidxWebkitVersion = '1.11.0'
+    
+    // ✅ TEST: Updated versions
     junitVersion = '4.13.2'
-    androidxJunitVersion = '1.1.5'
-    androidxEspressoCoreVersion = '3.5.1'
+    androidxJunitVersion = '1.2.1'
+    androidxEspressoCoreVersion = '3.6.1'
+    
+    // ✅ CAPACITOR: Consistent with package.json
     cordovaAndroidVersion = '10.1.1'
-    capacitorVersion = '5.5.1'
-    kotlinVersion = '1.9.22'
-    // It's also a good idea to update the Android Gradle Plugin version for compatibility
-    agpVersion = '8.4.1'
+    
+    // ✅ KOTLIN: Match root build.gradle
+    kotlinVersion = '1.9.24'
+    
+    // ✅ GRADLE: Consistent plugin version
+    agpVersion = '8.7.2'
 }
