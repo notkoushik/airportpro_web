@@ -1,14 +1,5 @@
 package com.airportpro.app
 
-import android.graphics.Bitmap
-
-
-data class MrzInfo(
-    val passportNumber: String,
-    val dateOfBirth: String,
-    val dateOfExpiry: String
-)
-
 data class PassportData(
     val documentNumber: String,
     val firstName: String,
@@ -25,9 +16,9 @@ data class LivenessResult(
     val photo: String? = null
 )
 
-sealed class UIState {
-    object Idle : UIState()
-    object Loading : UIState()
-    data class Success(val data: PassportDetails) : UIState()
-    data class Error(val message: String) : UIState()
-}
+data class NFCResult(
+    val success: Boolean,
+    val mrz: String? = null,
+    val photo: String? = null,
+    val verified: Boolean = false
+)
