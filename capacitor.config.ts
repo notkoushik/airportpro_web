@@ -1,7 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.airportpro.app',  // ✅ CRITICAL FIX: Match AndroidManifest
+  // ✅ CRITICAL: Match app build.gradle applicationId
+  appId: 'com.airportpro.app',
   appName: 'AirportPro',
   webDir: 'dist',
   server: {
