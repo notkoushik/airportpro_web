@@ -7,9 +7,11 @@ import WaitTimes from "./pages/WaitTimes";
 import Map from "./pages/Map";
 import More from "./pages/More";
 import NotFound from "./pages/NotFound";
-// REMOVED: import EnhancedSmartPathEnroll from './pages/EnhancedSmartPathEnroll';
-import PassportScanner from '@/components/passport/PassportScanner';  // ✅ Use working scanner
-import NFCPassportReader from '@/components/identity/Scanner';
+
+// Professional Components
+import ProfessionalPassportScanner from '@/components/passport/ProfessionalPassportScanner';
+import EnhancedIdentityVerification from '@/components/identity/EnhancedIdentityVerification';
+import NFCPassportReader from '@/components/identity/NFCPassportReader';
 
 export default function App() {
   return (
@@ -22,13 +24,14 @@ export default function App() {
         <Route path="/map" element={<Map />} />
         <Route path="/more" element={<More />} />
         
-        {/* ✅ FIXED: Route /enroll to working PassportScanner */}
-        <Route path="/enroll" element={<PassportScanner />} />
-        <Route path="/passport-scanner" element={<PassportScanner />} />
+        {/* 🏆 PROFESSIONAL PASSPORT SCANNING ROUTES */}
+        <Route path="/enroll" element={<ProfessionalPassportScanner />} />
+        <Route path="/passport-scanner" element={<ProfessionalPassportScanner />} />
+        <Route path="/identity-verification" element={<EnhancedIdentityVerification />} />
         <Route path="/nfc-scanner" element={<NFCPassportReader />} />
-        <Route path="/scanner" element={<NFCPassportReader />} />
+        <Route path="/scanner" element={<ProfessionalPassportScanner />} />
         
-        {/* This will catch any page that doesn't exist */}
+        {/* Catch all */}
         <Route path="*" element={<NotFound />} />
       </Routes>
     </>
