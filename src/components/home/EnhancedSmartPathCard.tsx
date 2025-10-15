@@ -1,42 +1,38 @@
-import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { useNavigate } from 'react-router-dom';
+import React from "react"; // <--- Add this import
+import { Link } from "react-router-dom";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { ShieldCheck } from "lucide-react";
 
-export const EnhancedSmartPathCard: React.FC = () => {
-  const navigate = useNavigate();
-  
+interface EnhancedSmartPathCardProps {
+  title?: string;
+  description?: string;
+  buttonText?: string;
+  to?: string;
+}
+
+// Explicitly type the component as a React.FC that uses the props interface
+export const EnhancedSmartPathCard: React.FC<EnhancedSmartPathCardProps> = ({
+  title = "Your Digital Identity",
+  description = "Scan your passport to get started",
+  buttonText = "Start Scanning",
+  to = "/enroll", // Note: The default is still here, but will be overridden
+}) => {
   return (
-    <Card className="bg-gradient-to-r from-blue-600 to-purple-600 text-white">
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-white">ProPass Smart Path</CardTitle>
-          <Badge variant="secondary" className="bg-white/20 text-white border-white/30">
-            Premium
-          </Badge>
-        </div>
+    <Card className="bg-white shadow-lg rounded-xl overflow-hidden">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-gray-50 p-4">
+        <CardTitle className="text-base font-semibold text-gray-800">
+          {title}
+        </CardTitle>
+        <ShieldCheck className="h-5 w-5 text-blue-500" />
       </CardHeader>
-      <CardContent>
-        <p className="text-white/90 mb-4">
-          Skip security lines with biometric verification. Fast-track through the airport.
-        </p>
-        <div className="flex gap-2">
-          <Button 
-            variant="secondary" 
-            className="bg-white text-blue-600 hover:bg-white/90"
-            onClick={() => navigate('/smart-path-enroll')}
-          >
-            Enroll Now
+      <CardContent className="p-4">
+        <p className="text-sm text-gray-600 mb-4">{description}</p>
+        <Link to={to} className="w-full">
+          <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">
+            {buttonText}
           </Button>
-          <Button 
-            variant="outline" 
-            className="border-white/50 text-white hover:bg-white/10"
-            onClick={() => navigate('/enhanced-smart-path-enroll')}
-          >
-            Learn More
-          </Button>
-        </div>
+        </Link>
       </CardContent>
     </Card>
   );

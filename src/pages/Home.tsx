@@ -39,7 +39,7 @@ const Home = () => {
 
       <main className="pb-20 px-4 space-y-6">
         {/* ProPass / Smart Path (enhanced) */}
-        <EnhancedSmartPathCard />
+        <EnhancedSmartPathCard to="/smart-path-enroll" />
 
         {/* My Flights */}
         <Card>

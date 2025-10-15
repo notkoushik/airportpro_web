@@ -1,6 +1,4 @@
 import { Routes, Route } from "react-router-dom";
-// If you have a toaster or global UI, import it here
-// import { Toaster } from "@/ui/toaster";
 
 // Pages
 import Home from "./pages/Home";
@@ -9,18 +7,12 @@ import BoardingPass from "./pages/BoardingPass";
 import WaitTimes from "./pages/WaitTimes";
 import Map from "./pages/Map";
 import More from "./pages/More";
-import SmartPathEnroll from "./pages/SmartPathEnroll";
 import NotFound from "./pages/NotFound";
-import EnhancedSmartPathEnroll from './pages/EnhancedSmartPathEnroll';
-
-// (Optional) If you have a header or bottom nav, import & render them outside <Routes>
-// import { Header } from "@/components/core/Header";
-// import { BottomNavigation } from "@/components/core/BottomNavigation";
+import EnhancedSmartPathEnroll from './pages/EnhancedSmartPathEnroll'; // The correct enrollment page
 
 export default function App() {
   return (
     <>
-      {/* <Header /> */}
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/flights" element={<Flights />} />
@@ -28,16 +20,13 @@ export default function App() {
         <Route path="/wait-times" element={<WaitTimes />} />
         <Route path="/map" element={<Map />} />
         <Route path="/more" element={<More />} />
-        <Route path="/enroll-enhanced" element={<EnhancedSmartPathEnroll />} />
 
-        {/* ProPass Enrollment (the route your "Scan Passport" navigates to) */}
-        <Route path="/smart-path/enroll" element={<SmartPathEnroll />} />
+        {/* This is the corrected route for the passport scanning flow */}
+        <Route path="/smart-path-enroll" element={<EnhancedSmartPathEnroll />} />
 
-        {/* 404 */}
+        {/* This will catch any page that doesn't exist */}
         <Route path="*" element={<NotFound />} />
       </Routes>
-      {/* <BottomNavigation /> */}
-      {/* <Toaster /> */}
     </>
   );
 }
