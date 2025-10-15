@@ -1,262 +1,205 @@
 package com.airportpro.app
 
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.util.Base64
 import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
 import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.CapacitorPlugin
 import com.getcapacitor.JSObject
+
+// Fixed imports for ML Kit
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.face.Face
 import com.google.mlkit.vision.face.FaceDetection
 import com.google.mlkit.vision.face.FaceDetector
 import com.google.mlkit.vision.face.FaceDetectorOptions
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
-import android.graphics.Rect
-import android.util.Base64
-import android.util.Log
-import kotlinx.coroutines.*
-import kotlin.math.abs
-
 
 @CapacitorPlugin(name = "LivenessPlugin")
 class LivenessPlugin : Plugin() {
-
-    companion object {
-        private const val TAG = "LivenessPlugin"
-        private const val MIN_FACE_SIZE = 0.15f
-        private const val EYE_OPEN_THRESHOLD = 0.3f
-        private const val HEAD_POSE_THRESHOLD = 20f
-        private const val MIN_FACE_WIDTH = 150
-        private const val MIN_FACE_HEIGHT = 200
-        private const val CONFIDENCE_THRESHOLD = 0.6f
-        private const val SMILE_THRESHOLD = 0.8f
-    }
-
+    
     private lateinit var detector: FaceDetector
-    private val pluginScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
     override fun load() {
-        try {
-            // Configure face detector with optimal settings for liveness detection
-            val options = FaceDetectorOptions.Builder()
-                .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_ACCURATE)
-                .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_ALL)
-                .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_ALL)
-                .setMinFaceSize(MIN_FACE_SIZE)
-                .enableTracking()
-                .build()
+        super.load()
+        
+        // Initialize face detector with optimal settings
+        val options = FaceDetectorOptions.Builder()
+            .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_ACCURATE)
+            .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_ALL)
+            .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_ALL)
+            .build()
 
-            detector = FaceDetection.getClient(options)
-            Log.i(TAG, "LivenessPlugin initialized with ML Kit Face Detection")
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to initialize ML Kit Face Detection", e)
-        }
+        detector = FaceDetection.getClient(options)
     }
 
     @PluginMethod
-    fun checkLiveness(call: PluginCall) {
-        val imageData = call.getString("imageData")
-        
-        if (imageData.isNullOrBlank()) {
-            call.reject("No image data provided")
+    fun detectLiveness(call: PluginCall) {
+        val base64Image = call.getString("imageData")
+        if (base64Image == null) {
+            call.reject("Missing image data")
             return
         }
 
-        pluginScope.launch {
-            try {
-                val bitmap = decodeBase64Image(imageData)
-                if (bitmap == null) {
-                    call.reject("Failed to decode image - Invalid base64 format")
-                    return@launch
-                }
-
-                // Validate image dimensions
-                if (bitmap.width < 300 || bitmap.height < 300) {
-                    call.reject("Image too small - Minimum 300x300 pixels required")
-                    return@launch
-                }
-
-                // Create InputImage and process with ML Kit
-                val image = InputImage.fromBitmap(bitmap, 0)
-                processLivenessDetection(image, call)
-
-            } catch (e: Exception) {
-                Log.e(TAG, "Error processing liveness check", e)
-                call.reject("Error processing image: ${e.localizedMessage}")
-            }
-        }
-    }
-
-    @PluginMethod
-    fun checkNFCSupport(call: PluginCall) {
         try {
-            // Check if device has NFC capability
-            val nfcAdapter = android.nfc.NfcAdapter.getDefaultAdapter(context)
-            val result = JSObject().apply {
-                put("supported", nfcAdapter != null)
-                put("enabled", nfcAdapter?.isEnabled == true)
-                put("available", nfcAdapter != null && nfcAdapter.isEnabled)
-            }
-            
-            Log.d(TAG, "NFC Support check: $result")
-            call.resolve(result)
-        } catch (e: Exception) {
-            Log.e(TAG, "Error checking NFC support", e)
-            val result = JSObject().apply {
-                put("supported", false)
-                put("enabled", false)
-                put("error", e.localizedMessage)
-            }
-            call.resolve(result)
-        }
-    }
-
-    private fun decodeBase64Image(imageData: String): Bitmap? {
-        return try {
-            // Handle data URLs (data:image/jpeg;base64,...)
-            val base64Image = if (imageData.contains(",")) {
-                imageData.split(",")[1]
-            } else {
-                imageData
-            }
-            
+            // Decode base64 image
             val decodedBytes = Base64.decode(base64Image, Base64.DEFAULT)
-            BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.size)
+            val bitmap = BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.size)
+            
+            if (bitmap == null) {
+                call.reject("Failed to decode image")
+                return
+            }
+
+            val image = InputImage.fromBitmap(bitmap, 0)
+            
+            processLivenessDetection(image, call)
+
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to decode base64 image", e)
-            null
+            call.reject("Error processing liveness detection: ${e.message}")
         }
     }
 
     private fun processLivenessDetection(image: InputImage, call: PluginCall) {
         detector.process(image)
             .addOnSuccessListener { faces ->
-                try {
-                    val result = analyzeFacesForLiveness(faces)
-                    val response = createLivenessResponse(result, faces.size)
-                    
-                    Log.d(TAG, "Liveness detection complete: $result")
-                    call.resolve(response)
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error analyzing faces for liveness", e)
-                    call.reject("Error analyzing faces: ${e.localizedMessage}")
-                }
+                val result = analyzeFacesForLiveness(faces)
+                call.resolve(result)
             }
-            .addOnFailureListener { exception ->
-                Log.e(TAG, "ML Kit face detection failed", exception)
-                call.reject("Face detection failed: ${exception.localizedMessage}")
+            .addOnFailureListener { e ->
+                call.reject("Face detection failed: ${e.message}")
             }
     }
 
-    private fun analyzeFacesForLiveness(faces: List<Face>): LivenessResult {
+    private fun analyzeFacesForLiveness(faces: List<Face>): JSObject {
+        val result = JSObject()
+        
         if (faces.isEmpty()) {
-            return LivenessResult(
-                isLive = false,
-                faceDetected = false,
-                confidence = 0.0f,
-                details = "No faces detected in image"
-            )
+            result.put("isLive", false)
+            result.put("confidence", 0.0)
+            result.put("reason", "No face detected")
+            return result
         }
 
-        // Select the best face for analysis
+        // Get the primary face (largest one)
         val primaryFace = faces.maxByOrNull { face ->
-            face.boundingBox.width() * face.boundingBox.height()
-        } ?: faces.first()
-        
+            val bounds = face.boundingBox
+            bounds.width() * bounds.height()
+        }
+
+        if (primaryFace == null) {
+            result.put("isLive", false)
+            result.put("confidence", 0.0)
+            result.put("reason", "Could not analyze primary face")
+            return result
+        }
+
         return analyzePrimaryFace(primaryFace)
     }
 
-    private fun analyzePrimaryFace(face: Face): LivenessResult {
-        val result = LivenessResult()
-        result.faceDetected = true
-
-        // Check eye openness (critical liveness indicator)
-        val (eyesOpen, eyeConfidence) = checkEyeOpenness(face)
-        result.eyesOpen = eyesOpen
-
-        // Check face size (ensure face is close enough)
-        val faceSizeValid = checkFaceSize(face.boundingBox)
-
-        // Check head pose (ensure face is roughly frontal)
-        val headPoseValid = checkHeadPose(face)
-        result.headPose = headPoseValid
-
-        // Check facial expression (should be natural, not overly smiling)
-        val expressionNatural = checkNaturalExpression(face)
-
-        // Calculate overall confidence score
-        val checks = listOf(eyesOpen, faceSizeValid, headPoseValid, expressionNatural)
-        val passedChecks = checks.count { it }
+    private fun analyzePrimaryFace(face: Face): JSObject {
+        val result = JSObject()
+        val checks = JSObject()
         
-        result.confidence = (passedChecks.toFloat() / checks.size) + (if (eyeConfidence > 0.8f) 0.1f else 0.0f)
-        result.confidence = minOf(result.confidence, 1.0f)
-        result.isLive = result.confidence > CONFIDENCE_THRESHOLD && passedChecks >= 3
+        // Check 1: Eye openness
+        val (leftEyeOpen, leftEyeProb) = checkEyeOpenness(face, true)
+        val (rightEyeOpen, rightEyeProb) = checkEyeOpenness(face, false)
+        checks.put("leftEyeOpen", leftEyeOpen)
+        checks.put("rightEyeOpen", rightEyeOpen)
+        checks.put("leftEyeProb", leftEyeProb)
+        checks.put("rightEyeProb", rightEyeProb)
 
-        result.details = "Eyes: $eyesOpen, Size: $faceSizeValid, Pose: $headPoseValid, Expression: $expressionNatural"
+        // Check 2: Head pose
+        val headPoseOk = checkHeadPose(face)
+        checks.put("headPoseOk", headPoseOk)
+        checks.put("headPoseX", face.headEulerAngleX)
+        checks.put("headPoseY", face.headEulerAngleY)
+        checks.put("headPoseZ", face.headEulerAngleZ)
+
+        // Check 3: Natural expression (smile probability)
+        val naturalExpression = checkNaturalExpression(face)
+        checks.put("naturalExpression", naturalExpression)
+        
+        val smileProb = face.smilingProbability ?: 0f
+        checks.put("smileProb", smileProb)
+
+        // Check 4: Face size (quality check)
+        val bounds = face.boundingBox
+        val faceSize = bounds.width() * bounds.height()
+        val faceSizeOk = faceSize > 30000 // Minimum face size
+        checks.put("faceSizeOk", faceSizeOk)
+        checks.put("faceSize", faceSize)
+
+        // Calculate overall confidence
+        var confidence = 0.0
+        var passedChecks = 0
+        val totalChecks = 5
+
+        if (leftEyeOpen && rightEyeOpen) {
+            confidence += 0.30
+            passedChecks++
+        }
+        if (headPoseOk) {
+            confidence += 0.20
+            passedChecks++
+        }
+        if (naturalExpression) {
+            confidence += 0.15
+            passedChecks++
+        }
+        if (faceSizeOk) {
+            confidence += 0.20
+            passedChecks++
+        }
+        // Additional quality bonus
+        if (face.trackingId != null) {
+            confidence += 0.15
+            passedChecks++
+        }
+
+        val isLive = confidence >= 0.60 // 60% minimum threshold
+        
+        result.put("isLive", isLive)
+        result.put("confidence", confidence)
+        result.put("passedChecks", passedChecks)
+        result.put("totalChecks", totalChecks)
+        result.put("checks", checks)
+        result.put("reason", if (isLive) "Liveness confirmed" else "Liveness check failed")
 
         return result
     }
 
-    private fun checkEyeOpenness(face: Face): Pair<Boolean, Float> {
-        val leftEyeOpen = face.leftEyeOpenProbability
-        val rightEyeOpen = face.rightEyeOpenProbability
-        
-        return when {
-            leftEyeOpen != null && rightEyeOpen != null -> {
-                val bothOpen = leftEyeOpen > EYE_OPEN_THRESHOLD && rightEyeOpen > EYE_OPEN_THRESHOLD
-                val confidence = (leftEyeOpen + rightEyeOpen) / 2.0f
-                Pair(bothOpen, confidence)
-            }
-            leftEyeOpen != null -> Pair(leftEyeOpen > EYE_OPEN_THRESHOLD, leftEyeOpen)
-            rightEyeOpen != null -> Pair(rightEyeOpen > EYE_OPEN_THRESHOLD, rightEyeOpen)
-            else -> Pair(true, 0.5f) // Default assumption if eye detection fails
+    private fun checkEyeOpenness(face: Face, isLeft: Boolean): Pair<Boolean, Float> {
+        val eyeProb = if (isLeft) {
+            face.leftEyeOpenProbability ?: 0f
+        } else {
+            face.rightEyeOpenProbability ?: 0f
         }
-    }
-
-    private fun checkFaceSize(boundingBox: Rect): Boolean {
-        return boundingBox.width() >= MIN_FACE_WIDTH && boundingBox.height() >= MIN_FACE_HEIGHT
+        
+        val isOpen = eyeProb > 0.3f // 30% threshold
+        return Pair(isOpen, eyeProb)
     }
 
     private fun checkHeadPose(face: Face): Boolean {
-        val rotX = abs(face.headEulerAngleX)
-        val rotY = abs(face.headEulerAngleY) 
-        val rotZ = abs(face.headEulerAngleZ)
+        val rotX = Math.abs(face.headEulerAngleX)
+        val rotY = Math.abs(face.headEulerAngleY)
+        val rotZ = Math.abs(face.headEulerAngleZ)
         
-        return rotX < HEAD_POSE_THRESHOLD && 
-               rotY < HEAD_POSE_THRESHOLD && 
-               rotZ < HEAD_POSE_THRESHOLD
+        // Allow up to 20 degrees rotation in any direction
+        return rotX < 20 && rotY < 20 && rotZ < 20
     }
 
     private fun checkNaturalExpression(face: Face): Boolean {
-        val smilingProbability = face.smilingProbability
-        return smilingProbability == null || smilingProbability < SMILE_THRESHOLD
-    }
-
-    private fun createLivenessResponse(result: LivenessResult, faceCount: Int): JSObject {
-        return JSObject().apply {
-            put("isLive", result.isLive)
-            put("confidence", result.confidence)
-            put("faceDetected", result.faceDetected)
-            put("eyesOpen", result.eyesOpen)
-            put("headPose", result.headPose)
-            put("faceCount", faceCount)
-            put("details", result.details)
-            put("timestamp", System.currentTimeMillis())
-        }
+        val smileProb = face.smilingProbability ?: 0f
+        // Natural expression: not too much smiling (could indicate fake photo)
+        return smileProb < 0.8f
     }
 
     override fun handleOnDestroy() {
         super.handleOnDestroy()
-        pluginScope.cancel()
+        if (this::detector.isInitialized) {
+            // Detector will be garbage collected automatically
+        }
     }
-
-    private data class LivenessResult(
-        var isLive: Boolean = false,
-        var faceDetected: Boolean = false,
-        var eyesOpen: Boolean = false,
-        var headPose: Boolean = false,
-        var confidence: Float = 0.0f,
-        var details: String = ""
-    )
 }
