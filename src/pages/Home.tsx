@@ -1,13 +1,9 @@
-// src/pages/Home.tsx
-
 import { Header } from "@/components/core/Header";
 import { QuickActions } from "@/components/home/QuickActions";
 import { BottomNavigation } from "@/components/core/BottomNavigation";
-
 // UI Components
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-
 // Replacements
 import { EnhancedSmartPathCard } from "@/components/home/EnhancedSmartPathCard";
 import { ProfessionalFlightCard } from "@/components/flights/ProfessionalFlightCard";
@@ -34,32 +30,36 @@ const Home = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className="min-h-screen bg-background">
       <Header />
-
-      <main className="pb-20 px-4 space-y-6">
+      
+      <div className="space-y-6 p-4">
         {/* ProPass / Smart Path (enhanced) */}
-        <EnhancedSmartPathCard to="/smart-path-enroll" />
+        <EnhancedSmartPathCard />
 
         {/* My Flights */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-base font-semibold">My Flights</CardTitle>
+            <CardTitle className="text-base font-medium">
+              My Flights
+            </CardTitle>
             <Badge variant="secondary" className="text-xs">
               {flights.length} Active
             </Badge>
           </CardHeader>
-
           <CardContent className="space-y-3">
             {flights.map((flight, index) => (
-              <ProfessionalFlightCard key={index} flight={flight} />
+              <ProfessionalFlightCard
+                key={index}
+                flight={flight}
+              />
             ))}
           </CardContent>
         </Card>
 
         {/* Quick Actions */}
         <QuickActions />
-      </main>
+      </div>
 
       <BottomNavigation />
     </div>

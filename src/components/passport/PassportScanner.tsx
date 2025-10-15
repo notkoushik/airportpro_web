@@ -1,7 +1,7 @@
 import React from 'react';
 import { Camera, CameraResultType } from '@capacitor/camera';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
-import { Button } from "../components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { useState } from 'react';
 
 const PassportScanner: React.FC = () => {

@@ -8,7 +8,9 @@ import WaitTimes from "./pages/WaitTimes";
 import Map from "./pages/Map";
 import More from "./pages/More";
 import NotFound from "./pages/NotFound";
-import EnhancedSmartPathEnroll from './pages/EnhancedSmartPathEnroll'; // The correct enrollment page
+import EnhancedSmartPathEnroll from './pages/EnhancedSmartPathEnroll';
+import PassportScanner   from '@/components/passport/PassportScanner';
+import NFCPassportReader from '@/components/identity/Scanner'; // This is the correct component
 
 export default function App() {
   return (
@@ -20,9 +22,16 @@ export default function App() {
         <Route path="/wait-times" element={<WaitTimes />} />
         <Route path="/map" element={<Map />} />
         <Route path="/more" element={<More />} />
+        <Route path="/"                 element={<Home />} />
+        <Route path="/enroll"           element={<EnhancedSmartPathEnroll />} />
+        <Route path="/passport-scanner" element={<PassportScanner />} />
+        <Route path="/nfc-scanner"      element={<NFCPassportReader />} />
+        <Route path="*"                 element={<NotFound />} />
 
-        {/* This is the corrected route for the passport scanning flow */}
-        <Route path="/smart-path-enroll" element={<EnhancedSmartPathEnroll />} />
+        {/* This is the corrected route. 
+          The URL from the button now correctly loads the Enhanced component.
+        */}
+        <Route path="/smart-path/enroll" element={<EnhancedSmartPathEnroll />} />
 
         {/* This will catch any page that doesn't exist */}
         <Route path="*" element={<NotFound />} />
