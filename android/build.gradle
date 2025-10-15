@@ -1,6 +1,4 @@
-// android/build.gradle (Project-level)
-// This is the TOP-LEVEL build file where you can add configuration options common to all sub-projects/modules.
-
+// android/build.gradle (Project-level) - Repository Warnings Fix
 buildscript {
     ext.kotlin_version = '1.9.24'
     dependencies {
@@ -17,14 +15,8 @@ plugins {
     id 'org.jetbrains.kotlin.android' version '1.9.24' apply false
 }
 
-allprojects {
-    repositories {
-        google()
-        mavenCentral()
-        maven { url 'https://www.jitpack.io' }
-        // Add any other repositories you need
-    }
-}
+// ✅ REMOVED allprojects block to fix repository warnings
+// Repositories are now configured in settings.gradle
 
 tasks.register('clean', Delete) {
     delete rootProject.buildDir

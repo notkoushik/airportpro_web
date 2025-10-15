@@ -1,41 +1,29 @@
-// src/components/core/Header.tsx
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Bell, User, Plane } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import React from 'react';
+import { Button } from '@/components/ui/button';
 
-export const Header = () => {
-  const { toast } = useToast();
+interface HeaderProps {
+  title?: string;
+  showBack?: boolean;
+  onBack?: () => void;
+}
 
-  const handleNotifications = () => {
-    toast({
-      title: "Notifications",
-      description: "You have 2 new notifications",
-    });
-  };
-
-  const handleProfile = () => {
-    toast({
-      title: "Profile", 
-      description: "Profile settings opened",
-    });
-  };
-
+export const Header: React.FC<HeaderProps> = ({ 
+  title = "AirportPro", 
+  showBack = false, 
+  onBack 
+}) => {
   return (
-    <header className="flex items-center justify-between p-4 bg-white border-b">
-      <div className="flex items-center space-x-2">
-        <Plane className="h-6 w-6 text-blue-600" />
-        <h1 className="text-xl font-bold">AirportPro</h1>
-        <Badge variant="outline" className="text-xs">BETA</Badge>
+    <header className="flex items-center justify-between p-4 bg-white shadow-sm">
+      <div className="flex items-center">
+        {showBack && (
+          <Button variant="ghost" size="sm" onClick={onBack}>
+            ←
+          </Button>
+        )}
+        <h1 className="text-xl font-semibold">{title}</h1>
       </div>
-      
-      <div className="flex items-center space-x-2">
-        <Button variant="ghost" size="sm" onClick={handleNotifications}>
-          <Bell className="h-4 w-4" />
-        </Button>
-        <Button variant="ghost" size="sm" onClick={handleProfile}>
-          <User className="h-4 w-4" />
-        </Button>
+      <div className="flex items-center gap-2">
+        {/* Add notification or profile icons here */}
       </div>
     </header>
   );
