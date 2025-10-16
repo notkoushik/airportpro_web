@@ -73,17 +73,23 @@ export class PassportScannerService {
     const line1 = sortedResults[0].text.replace(/\s/g, '');
     const line2 = sortedResults[1].text.replace(/\s/g, '');
     
+    console.log('Raw MRZ Line 1:', line1);
+    console.log('Raw MRZ Line 2:', line2);
+
+    const surname = this.extractName(line1.substring(5));
+    const givenNames = this.extractGivenNames(line1.substring(5));
+
     const parsed: PassportData = {
       documentType: this.cleanMRZField(line1.substring(0, 2)),
       countryCode: this.cleanMRZField(line1.substring(2, 5)),
-      surname: this.extractName(line1.substring(5)),
-      givenNames: this.extractGivenNames(line1.substring(5)),
+      surname: surname,
+      givenNames: givenNames || this.extractGivenNames(surname), // Fallback for single name passports
       passportNumber: this.cleanMRZField(line2.substring(0, 9)),
       nationality: this.cleanMRZField(line2.substring(10, 13)),
       dateOfBirth: this.parseDate(line2.substring(13, 19)),
       sex: this.cleanMRZField(line2.substring(20, 21)),
       dateOfExpiry: this.parseDate(line2.substring(21, 27)),
-      personalNumber: this.cleanMRZField(line2.substring(28, 42)) || undefined
+      personalNumber: line2.length > 28 ? this.cleanMRZField(line2.substring(28, 42)) || undefined : undefined
     };
 
     return {
@@ -95,17 +101,19 @@ export class PassportScannerService {
   }
 
   private cleanMRZField(field: string): string {
-    return field.replace(/</g, '').trim();
+    return field.replace(/[^A-Z0-9<]/g, '').trim();
   }
 
   private extractName(nameField: string): string {
-    const cleaned = nameField.replace(/</g, ' ').trim();
-    return cleaned.split('  ')[0] || '';
+    const cleaned = nameField.replace(/<+/g, ' ').trim();
+    const parts = cleaned.split(/\s+/);
+    return parts[0] || '';
   }
 
   private extractGivenNames(nameField: string): string {
-    const cleaned = nameField.replace(/</g, ' ').trim();
-    return cleaned.split('  ').slice(1).join(' ').trim();
+    const cleaned = nameField.replace(/<+/g, ' ').trim();
+    const parts = cleaned.split(/\s+/);
+    return parts.slice(1).join(' ').trim();
   }
 
   private parseDate(dateStr: string): string {

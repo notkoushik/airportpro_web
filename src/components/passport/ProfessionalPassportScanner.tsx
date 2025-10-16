@@ -52,11 +52,11 @@ export interface ScanResult {
 }
 
 interface ProfessionalPassportScannerProps {
-  onScanSuccess: (result: ScanResult) => void;
-  onScanFailure: (result: ScanResult) => void;
+  onScanSuccess?: (result: ScanResult) => void;
+  onScanFailure?: (result: ScanResult) => void;
 }
 
-const ProfessionalPassportScanner: React.FC<ProfessionalPassportScannerProps> = ({ onScanSuccess, onScanFailure }) => {
+const ProfessionalPassportScanner: React.FC<ProfessionalPassportScannerProps> = ({ onScanSuccess, onScanFailure } = {}) => {
   const navigate = useNavigate();
   const [scanning, setScanning] = useState(false);
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
@@ -290,7 +290,9 @@ const ProfessionalPassportScanner: React.FC<ProfessionalPassportScannerProps> = 
           };
           
           setScanResult(result);
-          onScanSuccess(result); // Notify parent component
+          onScanSuccess?.(result); // Notify parent component if callback is provided
+          // Always navigate to the main identity verification flow on success
+          navigate('/identity-verification', { state: { passportData: result.data } });
           console.log('🎉 Professional scan completed successfully');
           
           // Scroll to results
@@ -323,7 +325,7 @@ const ProfessionalPassportScanner: React.FC<ProfessionalPassportScannerProps> = 
           };
           
           setScanResult(result);
-          onScanFailure(result); // Notify parent component
+          onScanFailure?.(result); // Notify parent component if callback is provided
           console.log('❌ Professional scan failed');
         }
       }

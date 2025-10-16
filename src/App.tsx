@@ -15,7 +15,8 @@ const Map = lazy(() => import('./pages/Map'));
 const More = lazy(() => import('./pages/More'));
 
 // Lazy load scanning and identity components (heavy components)
-const EnhancedIdentityVerification = lazy(() => import('@/components/identity/EnhancedIdentityVerification'));
+const ProfessionalPassportScanner = lazy(() => import('@/components/passport/ProfessionalPassportScanner'));
+const ComprehensiveIdentityVerification = lazy(() => import('@/components/passport/ComprehensiveIdentityVerification'));
 
 // Loading Component
 const LoadingSpinner: React.FC = () => (
@@ -193,7 +194,7 @@ const App: React.FC = () => {
                 <RouteGuard>
                   <PageTransition location={location}>
                     <Suspense fallback={<LoadingSpinner />}>
-                      <EnhancedIdentityVerification />
+                      <ComprehensiveIdentityVerification />
                     </Suspense>
                   </PageTransition>
                 </RouteGuard>
@@ -206,7 +207,7 @@ const App: React.FC = () => {
                 <RouteGuard>
                   <PageTransition location={location}>
                     <Suspense fallback={<LoadingSpinner />}>
-                      <EnhancedIdentityVerification />
+                      <ComprehensiveIdentityVerification />
                     </Suspense>
                   </PageTransition>
                 </RouteGuard>
@@ -225,7 +226,7 @@ const App: React.FC = () => {
                 <RouteGuard>
                   <PageTransition location={location}>
                     <Suspense fallback={<LoadingSpinner />}>
-                      <EnhancedIdentityVerification />
+                      <ComprehensiveIdentityVerification />
                     </Suspense>
                   </PageTransition>
                 </RouteGuard>
@@ -233,10 +234,22 @@ const App: React.FC = () => {
             />
             
             {/* 🔗 ALIASES for main workflow - Redirects old/convenience paths to the correct workflow */}
-            <Route path="/scanner" element={<Navigate to="/identity-verification" replace />} />
-            <Route path="/passport" element={<Navigate to="/identity-verification" replace />} />
-            <Route path="/scan" element={<Navigate to="/identity-verification" replace />} />
-            <Route path="/passport-scanner" element={<Navigate to="/identity-verification" replace />} />
+            <Route 
+              path="/passport-scanner" 
+              element={
+                <RouteGuard>
+                  <PageTransition location={location}>
+                    <Suspense fallback={<LoadingSpinner />}>
+                      <ProfessionalPassportScanner />
+                    </Suspense>
+                  </PageTransition>
+                </RouteGuard>
+              } 
+            />
+            <Route path="/scanner" element={<Navigate to="/passport-scanner" replace />} />
+            <Route path="/passport" element={<Navigate to="/passport-scanner" replace />} />
+            <Route path="/scan" element={<Navigate to="/passport-scanner" replace />} />
+
             <Route path="/liveness" element={<Navigate to="/identity-verification" replace />} />
             <Route path="/biometric" element={<Navigate to="/identity-verification" replace />} />
             <Route path="/face-verification" element={<Navigate to="/identity-verification" replace />} />
