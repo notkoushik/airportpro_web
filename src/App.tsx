@@ -9,7 +9,7 @@ import More from "./pages/More";
 import NotFound from "./pages/NotFound";
 
 // Real OCR Scanner Components
-import FixedOCRPassportScanner from '@/components/passport/FixedOCRPassportScanner';
+import FixedOCRPassportScanner from '@/components/passport/SimplifiedOCRScanner.tsx';
 import AdvancedLivenessDetector from '@/components/liveness/AdvancedLivenessDetector';
 import EnhancedIdentityVerification from '@/components/identity/EnhancedIdentityVerification';
 
@@ -28,10 +28,10 @@ export default function App() {
 <Route path="/biometric-verification" element={<AdvancedLivenessDetector />} />
         
         {/* 🏆 REAL OCR PASSPORT SCANNING ROUTES */}
-        <Route path="/enroll" element={<RealOCRPassportScanner />} />
-        <Route path="/passport-scanner" element={<RealOCRPassportScanner />} />
-        <Route path="/identity-verification" element={<EnhancedIdentityVerification />} />
-        <Route path="/scanner" element={<RealOCRPassportScanner />} />
+        <Route path="/enroll" element={<FixedOCRPassportScanner />} />
+        <Route path="/passport-scanner" element={<FixedOCRPassportScanner />} />
+        <Route path="/identity-verification" element={<FixedOCRPassportScanner />} />
+        <Route path="/enroll" element={<FixedOCRPassportScanner />} />
         
         {/* Catch all */}
         <Route path="*" element={<NotFound />} />

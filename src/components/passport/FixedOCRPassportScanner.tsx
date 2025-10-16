@@ -84,8 +84,8 @@ const FixedOCRPassportScanner: React.FC = () => {
       console.log('🔍 Starting MRZ extraction...');
       
       // Try Dynamsoft first, fallback to Tesseract.js
-      if (DynamsoftMRZ && typeof DynamsoftMRZ.MrzScanner !== 'undefined') {
-        console.log('Using Dynamsoft MRZ Scanner');
+      if (DynamsoftMRZ && typeof DynamsoftMRZ.MRZScanner !== 'undefined') {
+        console.log('Using Dynamsoft MRZScanner');
         // Use Dynamsoft if available
         return await extractWithDynamsoft(imageDataUrl);
       } else {
@@ -101,9 +101,12 @@ const FixedOCRPassportScanner: React.FC = () => {
 
   const extractWithDynamsoft = async (imageDataUrl: string): Promise<PassportData | null> => {
     try {
-      // Dynamsoft implementation (when working)
       console.log('🔍 Processing with Dynamsoft...');
-      // This would contain the actual Dynamsoft logic
+      const scanner = await DynamsoftMRZ.MRZScanner.createInstance();
+      const results = await scanner.recognize(imageDataUrl);
+      if (results.length > 0) {
+        return parseMRZ(results[0].text);
+      }
       return null; // Placeholder
     } catch (error) {
       console.error('Dynamsoft extraction failed:', error);
