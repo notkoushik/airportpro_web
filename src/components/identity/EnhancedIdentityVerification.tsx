@@ -17,7 +17,8 @@ import {
   Eye
 } from "lucide-react";
 
-import ProfessionalPassportScanner from '../passport/ProfessionalPassportScanner';
+import ProfessionalPassportScanner, { ScanResult } from '../passport/ProfessionalPassportScanner';
+import AdvancedLivenessDetector from '../liveness/AdvancedLivenessDetector'; // 1. Import the component
 
 type VerificationStep = 'welcome' | 'passport' | 'liveness' | 'nfc' | 'complete';
 
@@ -73,10 +74,16 @@ const EnhancedIdentityVerification: React.FC = () => {
 
   const getCurrentStep = () => steps.find(step => step.id === currentStep);
 
-  const handlePassportSuccess = (data: any) => {
-    setVerificationData(prev => ({ ...prev, passportData: data }));
+  const handlePassportSuccess = (result: ScanResult) => {
+    setVerificationData(prev => ({ ...prev, passportData: result.data }));
     setCurrentStep('liveness');
     setProgress(66);
+  };
+
+  const handlePassportFailure = (result: ScanResult) => {
+    // For now, let's just log it. You could show an error message and a retry button.
+    console.error("Passport scan failed:", result);
+    // Optionally, reset to the welcome screen or show a specific error state.
   };
 
   const handleLivenessSuccess = () => {
@@ -155,50 +162,19 @@ const EnhancedIdentityVerification: React.FC = () => {
   );
 
   const renderPassportStep = () => (
-    <ProfessionalPassportScanner />
+    <ProfessionalPassportScanner 
+      onScanSuccess={handlePassportSuccess}
+      onScanFailure={handlePassportFailure}
+    />
   );
 
   const renderLivenessStep = () => (
-    <div className="max-w-xl mx-auto text-center space-y-6">
-      <div className="w-20 h-20 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center mx-auto">
-        <Eye className="w-10 h-10 text-white" />
-      </div>
-      
-      <div>
-        <h2 className="text-2xl font-bold mb-4">Liveness Verification</h2>
-        <p className="text-gray-600 mb-8">
-          Look directly at the camera and follow the on-screen instructions
-        </p>
-      </div>
-
-      <Card className="p-8 bg-gradient-to-br from-green-50 to-green-100">
-        <div className="aspect-video bg-gray-800 rounded-lg flex items-center justify-center mb-6">
-          <div className="text-white text-center">
-            <Camera className="w-16 h-16 mx-auto mb-4 opacity-50" />
-            <p>Camera feed would appear here</p>
-          </div>
-        </div>
-        
-        <div className="space-y-3">
-          <div className="flex items-center space-x-3">
-            <CheckCircle className="w-5 h-5 text-green-600" />
-            <span>Face detected</span>
-          </div>
-          <div className="flex items-center space-x-3">
-            <CheckCircle className="w-5 h-5 text-green-600" />
-            <span>Eyes open verification</span>
-          </div>
-          <div className="flex items-center space-x-3">
-            <CheckCircle className="w-5 h-5 text-green-600" />
-            <span>Liveness score: 94%</span>
-          </div>
-        </div>
-      </Card>
-
-      <Button size="lg" onClick={handleLivenessSuccess}>
-        Complete Liveness Check
-      </Button>
-    </div>
+    // 2. Render the real component and pass the success handler
+    <AdvancedLivenessDetector 
+      onLivenessSuccess={handleLivenessSuccess}
+      // You would also add an onFailure handler here for robustness
+      // onLivenessFailure={handleLivenessFailure}
+    />
   );
 
   const renderNFCStep = () => (

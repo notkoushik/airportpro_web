@@ -40,6 +40,11 @@ interface LivenessResult {
   capturedImage?: string;
 }
 
+export interface AdvancedLivenessDetectorProps {
+  onLivenessSuccess: (result: LivenessResult) => void;
+  onLivenessFailure?: (result: LivenessResult) => void;
+}
+
 interface BiometricData {
   faceDescriptor: Float32Array | null;
   livenessResult: LivenessResult | null;
@@ -47,7 +52,7 @@ interface BiometricData {
   matchScore?: number;
 }
 
-const AdvancedLivenessDetector: React.FC = () => {
+const AdvancedLivenessDetector: React.FC<AdvancedLivenessDetectorProps> = ({ onLivenessSuccess, onLivenessFailure }) => {
   const [isInitialized, setIsInitialized] = useState(false);
   const [testing, setTesting] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -431,6 +436,13 @@ const AdvancedLivenessDetector: React.FC = () => {
     stopCamera();
     
     console.log('🎯 Liveness test completed:', result);
+
+    // Notify the parent component of the result
+    if (result.isLive) {
+      onLivenessSuccess(result);
+    } else if (onLivenessFailure) {
+      onLivenessFailure(result);
+    }
   };
 
   // Capture Aadhaar card photo
