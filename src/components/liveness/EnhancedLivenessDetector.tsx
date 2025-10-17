@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { 
-  Eye, 
   CheckCircle,
   AlertTriangle,
   ArrowLeft,
@@ -14,7 +13,8 @@ import {
   RefreshCw,
   Camera as CameraIcon,
   User,
-  Sparkles
+  Sparkles,
+  Eye
 } from "lucide-react";
 
 // Face-API.js for real liveness detection
@@ -56,6 +56,13 @@ const EnhancedLivenessDetector: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const intervalRef = useRef<NodeJS.Timeout>();
+  const animationRef = useRef<number>();
+
+  // Refs to track challenge completion
+  const challengeState = useRef({
+    hasBlinked: false,
+    hasSmiled: false,
+  });
   
   // State from verification flow
   const passportData = location.state?.passportData as PassportData | undefined;
@@ -69,13 +76,13 @@ const EnhancedLivenessDetector: React.FC = () => {
   const [currentDetections, setCurrentDetections] = useState<{
     faces: number;
     confidence: number;
-    eyesClosed: boolean;
+    eyeState: 'open' | 'closed' | 'unknown';
     smiling: boolean;
     headPose: { yaw: number; pitch: number; roll: number };
   }>({
     faces: 0,
     confidence: 0,
-    eyesClosed: false,
+    eyeState: 'unknown',
     smiling: false,
     headPose: { yaw: 0, pitch: 0, roll: 0 }
   });
@@ -87,6 +94,7 @@ const EnhancedLivenessDetector: React.FC = () => {
   useEffect(() => {
     const loadModels = async () => {
       setIsLoading(true);
+      setModelsLoaded(false);
       try {
         console.log('🔧 Loading Face-API.js models for enhanced liveness detection...');
         
@@ -100,10 +108,16 @@ const EnhancedLivenessDetector: React.FC = () => {
           faceapi.nets.ageGenderNet.loadFromUri(MODEL_URL)
         ]);
         
+        // CRITICAL: Verify that all models are loaded
+        if (!faceapi.nets.tinyFaceDetector.isLoaded || !faceapi.nets.faceLandmark68Net.isLoaded || !faceapi.nets.faceExpressionNet.isLoaded) {
+          throw new Error('A critical face-api model failed to load.');
+        }
+
         setModelsLoaded(true);
         console.log('✅ All Face-API.js models loaded successfully');
       } catch (error) {
         console.error('❌ Failed to load Face-API.js models:', error);
+        // Keep modelsLoaded as false to prevent the user from starting the test
         setModelsLoaded(false);
       } finally {
         setIsLoading(false);
@@ -164,6 +178,11 @@ const EnhancedLivenessDetector: React.FC = () => {
       clearInterval(intervalRef.current);
       intervalRef.current = undefined;
     }
+
+    if (animationRef.current) {
+      cancelAnimationFrame(animationRef.current);
+      animationRef.current = undefined;
+    }
   }, []);
 
   // Enhanced real-time face detection with visual overlay
@@ -175,13 +194,16 @@ const EnhancedLivenessDetector: React.FC = () => {
     const ctx = canvas.getContext('2d');
     
     if (!ctx) return;
-
+    
+    // Use requestAnimationFrame for smoother loop
+    animationRef.current = requestAnimationFrame(detectFacesRealTime);
+    
     try {
       // Detect faces with all features
       const detections = await faceapi
-        .detectAllFaces(video, new faceapi.TinyFaceDetectorOptions({
-          inputSize: 416,
-          scoreThreshold: 0.5
+        .detectAllFaces(video, new faceapi.TinyFaceDetectorOptions({ // More sensitive settings
+          inputSize: 512,
+          scoreThreshold: 0.4
         }))
         .withFaceLandmarks()
         .withFaceExpressions()
@@ -196,13 +218,13 @@ const EnhancedLivenessDetector: React.FC = () => {
         
         // Draw face bounding box
         const box = detection.detection.box;
-        ctx.strokeStyle = '#00ff00';
-        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#4ade80'; // Brighter green
+        ctx.lineWidth = 3;
         ctx.strokeRect(box.x, box.y, box.width, box.height);
         
         // Draw face landmarks
         if (landmarks) {
-          ctx.fillStyle = '#ff0000';
+          ctx.fillStyle = '#f87171'; // Softer red
           const jawOutline = landmarks.getJawOutline();
           const leftEye = landmarks.getLeftEye();
           const rightEye = landmarks.getRightEye();
@@ -212,7 +234,7 @@ const EnhancedLivenessDetector: React.FC = () => {
           // Draw key landmarks
           [leftEye, rightEye, nose, mouth].forEach(feature => {
             feature.forEach(point => {
-              ctx.beginPath();
+              ctx.beginPath(); // Use a smaller radius for a cleaner look
               ctx.arc(point.x, point.y, 1, 0, 2 * Math.PI);
               ctx.fill();
             });
@@ -221,7 +243,11 @@ const EnhancedLivenessDetector: React.FC = () => {
         
         // Update detection state
         const faceConfidence = detection.detection.score;
-        const eyesClosed = expressions.neutral > 0.7; // Simplified eye detection
+        // A better blink detection: check if eye landmarks are close together
+        const leftEye = landmarks.getLeftEye();
+        const rightEye = landmarks.getRightEye();
+        const leftEyeOpenRatio = (faceapi.euclideanDistance(leftEye[1], leftEye[5]) + faceapi.euclideanDistance(leftEye[2], leftEye[4])) / (2 * faceapi.euclideanDistance(leftEye[0], leftEye[3]));
+        const eyesClosed = leftEyeOpenRatio < 0.2;
         const smiling = expressions.happy > 0.5;
         
         // Calculate head pose (simplified)
@@ -234,40 +260,45 @@ const EnhancedLivenessDetector: React.FC = () => {
         setCurrentDetections({
           faces: detections.length,
           confidence: faceConfidence,
-          eyesClosed,
+          eyeState: eyesClosed ? 'closed' : 'open',
           smiling,
           headPose
         });
         
         // Draw info overlay
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(10, 10, 200, 100);
+        ctx.strokeStyle = '#4ade80';
+        ctx.strokeRect(10, 10, 200, 100);
+
         ctx.fillStyle = '#ffffff';
-        ctx.font = '14px Arial';
-        ctx.fillRect(10, 10, 220, 140);
-        ctx.fillStyle = '#000000';
-        ctx.fillText(`Faces: ${detections.length}`, 15, 30);
-        ctx.fillText(`Confidence: ${(faceConfidence * 100).toFixed(1)}%`, 15, 50);
-        ctx.fillText(`Age: ${Math.round(ageAndGender.age)}`, 15, 70);
-        ctx.fillText(`Gender: ${ageAndGender.gender}`, 15, 90);
-        ctx.fillText(`Smiling: ${expressions.happy > 0.5 ? 'Yes' : 'No'}`, 15, 110);
-        ctx.fillText(`Happy: ${(expressions.happy * 100).toFixed(1)}%`, 15, 130);
-        
+        ctx.font = 'bold 14px Arial';
+        ctx.fillText('🔴 LIVE ANALYSIS', 20, 30);
+        ctx.font = '12px Arial';
+        ctx.fillText(`Confidence: ${(faceConfidence * 100).toFixed(0)}%`, 20, 50);
+        ctx.fillText(`Age: ~${Math.round(ageAndGender.age)}`, 20, 65);
+        ctx.fillText(`Gender: ${ageAndGender.gender}`, 20, 80);
+        ctx.fillText(`Expression: ${expressions.happy > 0.5 ? 'Happy' : 'Neutral'}`, 20, 95);
+
       } else {
         // No face detected
         setCurrentDetections({
           faces: 0,
           confidence: 0,
-          eyesClosed: false,
+          eyeState: 'unknown',
           smiling: false,
           headPose: { yaw: 0, pitch: 0, roll: 0 }
         });
         
         // Draw "No Face Detected" message
-        ctx.fillStyle = 'rgba(255, 0, 0, 0.8)';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = 'rgba(239, 68, 68, 0.8)'; // Red overlay
+        ctx.fillRect(canvas.width / 4, canvas.height / 2 - 40, canvas.width / 2, 80);
         ctx.fillStyle = '#ffffff';
-        ctx.font = '24px Arial';
+        ctx.font = 'bold 20px Arial';
         ctx.textAlign = 'center';
-        ctx.fillText('No Face Detected', canvas.width / 2, canvas.height / 2);
+        ctx.fillText('❌ NO FACE DETECTED', canvas.width / 2, canvas.height / 2);
+        ctx.font = '14px Arial';
+        ctx.fillText('Please center your face', canvas.width / 2, canvas.height / 2 + 20);
         ctx.textAlign = 'start';
       }
       
@@ -278,10 +309,10 @@ const EnhancedLivenessDetector: React.FC = () => {
 
   // Start real-time detection
   const startRealTimeDetection = useCallback(() => {
-    if (intervalRef.current) clearInterval(intervalRef.current);
+    if (animationRef.current) cancelAnimationFrame(animationRef.current);
     
-    intervalRef.current = setInterval(detectFacesRealTime, 100); // 10 FPS
-    console.log('🔄 Started real-time face detection');
+    animationRef.current = requestAnimationFrame(detectFacesRealTime);
+    console.log('🔄 Started smooth real-time face detection');
   }, [detectFacesRealTime]);
 
   // New function to preprocess the image and isolate the MRZ
@@ -342,6 +373,53 @@ const EnhancedLivenessDetector: React.FC = () => {
     });
   };
 
+  // Challenge-based phase progression
+  useEffect(() => {
+    if (!isDetecting || testPhase === 'complete' || testPhase === 'ready') {
+      return;
+    }
+
+    const checkChallenges = () => {
+      const { faces, eyeState, smiling } = currentDetections;
+
+      if (faces !== 1) {
+        return; // Wait for a single face
+      }
+
+      switch (testPhase) {
+        case 'detecting':
+          // This is now the stabilization phase. It will only proceed if a face is present.
+          if (faces === 1) {
+            console.log('✅ Face stabilized. Starting challenges...');
+            setProgress(50);
+            setTestPhase('blinking');
+          }
+          break;
+
+        case 'blinking':
+          if (eyeState === 'closed') {
+            console.log('✅ Blink detected!');
+            challengeState.current.hasBlinked = true;
+            setProgress(75);
+            setTestPhase('smiling');
+          }
+          break;
+
+        case 'smiling':
+          if (smiling) {
+            console.log('✅ Smile detected!');
+            challengeState.current.hasSmiled = true;
+            setProgress(90);
+            setTestPhase('complete'); // End test after smile
+          }
+          break;
+      }
+    };
+
+    const challengeInterval = setInterval(checkChallenges, 500);
+    return () => clearInterval(challengeInterval);
+  }, [isDetecting, testPhase, currentDetections]);
+
   // Perform complete liveness test
   const performLivenessTest = async () => {
     if (!modelsLoaded) {
@@ -352,6 +430,11 @@ const EnhancedLivenessDetector: React.FC = () => {
     setIsDetecting(true);
     setProgress(0);
     setTestPhase('detecting');
+    // Reset challenge state
+    challengeState.current = {
+      hasBlinked: false,
+      hasSmiled: false,
+    };
     
     try {
       // Start camera
@@ -361,46 +444,30 @@ const EnhancedLivenessDetector: React.FC = () => {
       }
       
       setProgress(20);
-      
-      // Wait for camera to stabilize
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Start real-time detection
-      startRealTimeDetection();
+      startRealTimeDetection(); // Start the detection loop
       setProgress(40);
       
-      // Phase 1: Face detection
-      setTestPhase('detecting');
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      setProgress(60);
-      
-      // Phase 2: Blink detection
-      setTestPhase('blinking');
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      setProgress(75);
-      
-      // Phase 3: Smile detection
-      setTestPhase('smiling');
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      setProgress(90);
-      
+      // Wait for challenges to complete
+      await new Promise<void>(resolve => {
+        const checkCompletion = setInterval(() => {
+          if (testPhase === 'complete' || !isDetecting) {
+            clearInterval(checkCompletion);
+            resolve();
+          }
+        }, 100);
+      });
+
+      // Stop detection to freeze frame for photo
+      if (animationRef.current) cancelAnimationFrame(animationRef.current);
+
       // Capture final photo
       const image = await Camera.getPhoto({
         quality: 90,
         allowEditing: false,
         resultType: CameraResultType.DataUrl,
         source: CameraSource.Camera,
-        width: 800,
-        height: 600
       });
       
-      // *** NEW PRE-PROCESSING STEP ***
-      console.log("🔬 Pre-processing captured image before OCR...");
-      const processedImageUrl = await preprocessImageForMRZ(image.dataUrl);
-      // Now, you would pass `processedImageUrl` to your OCR function instead of `image.dataUrl`
-      // For this example, we'll just log it and continue.
-      console.log("✅ Image pre-processing complete.");
-
       setProgress(100);
       
       // Calculate final liveness score
@@ -415,7 +482,6 @@ const EnhancedLivenessDetector: React.FC = () => {
       };
       
       setLivenessResult(result);
-      setTestPhase('complete');
       
       console.log('✅ Liveness test completed:', result);
       
@@ -446,8 +512,8 @@ const EnhancedLivenessDetector: React.FC = () => {
     const metrics = currentDetections;
     
     const faceConfidence = metrics.confidence;
-    const blinkDetected = true; // Simulated for now
-    const headMovement = Math.abs(metrics.headPose.yaw) > 5; // Simplified
+    const blinkDetected = challengeState.current.hasBlinked;
+    const headMovement = false; // Not tested in this component
     const smileDetected = metrics.smiling;
     const spoofPrevention = faceConfidence > 0.8; // Anti-spoofing
     
@@ -491,7 +557,7 @@ const EnhancedLivenessDetector: React.FC = () => {
             </p>
           </div>
         );
-      case 'detecting':
+      case 'detecting': // This is now the stabilization phase
         return (
           <div className="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
             <Sparkles className="w-12 h-12 text-green-600 mx-auto mb-3" />
@@ -499,7 +565,7 @@ const EnhancedLivenessDetector: React.FC = () => {
               Detecting Face
             </h3>
             <p className="text-green-700 dark:text-green-400">
-              Look directly at the camera
+              Hold steady, stabilizing...
             </p>
           </div>
         );
@@ -511,7 +577,7 @@ const EnhancedLivenessDetector: React.FC = () => {
               Blink Detection
             </h3>
             <p className="text-purple-700 dark:text-purple-400">
-              Blink naturally a few times
+              Please blink your eyes
             </p>
           </div>
         );

@@ -107,6 +107,7 @@ const UltimateLivenessDetector: React.FC = () => {
   useEffect(() => {
     const loadModels = async () => {
       setIsLoading(true);
+      setModelsLoaded(false);
       try {
         console.log('🔧 Loading Face-API.js models for ultimate liveness detection...');
         
@@ -122,10 +123,16 @@ const UltimateLivenessDetector: React.FC = () => {
         
         await Promise.all(modelPromises);
         
+        // CRITICAL: Verify that all models are loaded
+        if (!faceapi.nets.tinyFaceDetector.isLoaded || !faceapi.nets.faceLandmark68Net.isLoaded || !faceapi.nets.faceExpressionNet.isLoaded) {
+          throw new Error('A critical face-api model failed to load.');
+        }
+
         setModelsLoaded(true);
         console.log('✅ All Face-API.js models loaded successfully');
       } catch (error) {
         console.error('❌ Failed to load Face-API.js models:', error);
+        // Keep modelsLoaded as false to prevent the user from starting the test
         setModelsLoaded(false);
       } finally {
         setIsLoading(false);
