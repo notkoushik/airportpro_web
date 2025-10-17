@@ -6,6 +6,8 @@ import { AnimatePresence, motion } from 'framer-motion';
 // Core Pages (Keep these as regular imports for better UX)
 import Home from './pages/Home';
 import NotFound from './pages/NotFound';
+import UltimateLivenessDetector from './components/liveness/UltimateLivenessDetector';
+
 
 // Lazy load secondary pages for better performance
 const Flights = lazy(() => import('./pages/Flights'));
@@ -17,6 +19,7 @@ const More = lazy(() => import('./pages/More'));
 // Lazy load scanning and identity components (heavy components)
 const ProfessionalPassportScanner = lazy(() => import('@/components/passport/ProfessionalPassportScanner'));
 const ComprehensiveIdentityVerification = lazy(() => import('@/components/passport/ComprehensiveIdentityVerification'));
+
 
 // Loading Component
 const LoadingSpinner: React.FC = () => (
@@ -134,7 +137,7 @@ const App: React.FC = () => {
                 </RouteGuard>
               } 
             />
-            
+            <Route path="/liveness-test" element={<UltimateLivenessDetector />} />
             <Route 
               path="/boarding-pass" 
               element={
@@ -250,7 +253,6 @@ const App: React.FC = () => {
             <Route path="/passport" element={<Navigate to="/passport-scanner" replace />} />
             <Route path="/scan" element={<Navigate to="/passport-scanner" replace />} />
 
-            <Route path="/liveness" element={<Navigate to="/identity-verification" replace />} />
             <Route path="/biometric" element={<Navigate to="/identity-verification" replace />} />
             <Route path="/face-verification" element={<Navigate to="/identity-verification" replace />} />
             <Route path="/test-scanner" element={<Navigate to="/identity-verification" replace />} />

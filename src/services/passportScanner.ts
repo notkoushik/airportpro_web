@@ -1,5 +1,6 @@
 import { LabelRecognizer } from 'dynamsoft-label-recognizer';
 import type { PassportData, MRZData, ScanResult, ScannerConfig } from '../types/passport';
+import { PassportScannerService as MRZParserService } from './PassportScannerService'; // Import the new parser
 
 export class PassportScannerService {
   private recognizer: LabelRecognizer | null = null;
@@ -24,7 +25,6 @@ export class PassportScannerService {
       if (this.config.licenseKey) {
         LabelRecognizer.license = this.config.licenseKey;
       }
-
       await LabelRecognizer.loadWasm();
       this.recognizer = await LabelRecognizer.createInstance();
       
@@ -68,78 +68,26 @@ export class PassportScannerService {
     }
   }
 
+  // 🔧 REPLACED: Using the new, more robust PassportScannerService for parsing
   private parseMRZLines(results: any[]): MRZData {
     const sortedResults = results.sort((a, b) => a.location.y - b.location.y);
-    const line1 = sortedResults[0].text.replace(/\s/g, '');
-    const line2 = sortedResults[1].text.replace(/\s/g, '');
+    const line1 = sortedResults[0].text;
+    const line2 = sortedResults[1].text;
+    const rawMRZ = `${line1}\n${line2}`;
     
-    console.log('Raw MRZ Line 1:', line1);
-    console.log('Raw MRZ Line 2:', line2);
-
-    const surname = this.extractName(line1.substring(5));
-    const givenNames = this.extractGivenNames(line1.substring(5));
-
-    const parsed: PassportData = {
-      documentType: this.cleanMRZField(line1.substring(0, 2)),
-      countryCode: this.cleanMRZField(line1.substring(2, 5)),
-      surname: surname,
-      givenNames: givenNames || this.extractGivenNames(surname), // Fallback for single name passports
-      passportNumber: this.cleanMRZField(line2.substring(0, 9)),
-      nationality: this.cleanMRZField(line2.substring(10, 13)),
-      dateOfBirth: this.parseDate(line2.substring(13, 19)),
-      sex: this.cleanMRZField(line2.substring(20, 21)),
-      dateOfExpiry: this.parseDate(line2.substring(21, 27)),
-      personalNumber: line2.length > 28 ? this.cleanMRZField(line2.substring(28, 42)) || undefined : undefined
-    };
-
-    return {
-      line1,
-      line2,
-      parsed,
-      confidence: this.calculateValidationScore(parsed)
-    };
-  }
-
-  private cleanMRZField(field: string): string {
-    return field.replace(/[^A-Z0-9<]/g, '').trim();
-  }
-
-  private extractName(nameField: string): string {
-    const cleaned = nameField.replace(/<+/g, ' ').trim();
-    const parts = cleaned.split(/\s+/);
-    return parts[0] || '';
-  }
-
-  private extractGivenNames(nameField: string): string {
-    const cleaned = nameField.replace(/<+/g, ' ').trim();
-    const parts = cleaned.split(/\s+/);
-    return parts.slice(1).join(' ').trim();
-  }
-
-  private parseDate(dateStr: string): string {
-    if (dateStr.length !== 6) return dateStr;
+    console.log('📄 Raw OCR result for parsing:', rawMRZ);
     
-    const year = parseInt(dateStr.substring(0, 2));
-    const month = dateStr.substring(2, 4);
-    const day = dateStr.substring(4, 6);
-    const fullYear = year < 30 ? 2000 + year : 1900 + year;
+    // Use the static method from the new service for parsing
+    const parsedResult = MRZParserService.parsePassportMRZ(rawMRZ);
     
-    return `${fullYear}-${month}-${day}`;
-  }
-
-  private calculateValidationScore(data: PassportData): number {
-    let score = 0;
-    if (['P', 'V', 'I'].includes(data.documentType)) score += 0.2;
-    if (data.countryCode.length === 3) score += 0.2;
-    if (data.passportNumber.length > 0) score += 0.2;
-    if (this.isValidDate(data.dateOfBirth)) score += 0.2;
-    if (this.isValidDate(data.dateOfExpiry)) score += 0.2;
-    return score;
-  }
-
-  private isValidDate(dateStr: string): boolean {
-    const date = new Date(dateStr);
-    return date instanceof Date && !isNaN(date.getTime());
+    if (!parsedResult) {
+      console.error('❌ New parser failed to extract data.');
+      // Return a default error structure
+      return { line1: '', line2: '', confidence: 0, parsed: {} as PassportData };
+    }
+    
+    console.log('✅ New parser returned:', parsedResult);
+    return parsedResult;
   }
 
   async destroy(): Promise<void> {
