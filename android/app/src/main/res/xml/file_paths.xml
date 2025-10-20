@@ -1,22 +1,93 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <paths xmlns:android="http://schemas.android.com/apk/res/android">
-        <!-- Internal storage -->
-        <files-path name="internal_files" path="." />
-        
-        <!-- External storage -->
-        <external-files-path name="external_files" path="." />
-        
-        <!-- Cache directory -->
-        <cache-path name="cache" path="." />
-        
-        <!-- External cache directory -->
-        <external-cache-path name="external_cache" path="." />
-        
-        <!-- Public Downloads directory -->
-        <external-path name="downloads" path="Download/" />
-        
-        <!-- Public Pictures directory for camera images -->
-        <external-path name="pictures" path="Pictures/" />
-    </paths>
-</resources>
+<!--
+    File Provider Paths Configuration
+    
+    CRITICAL: This file MUST exist for camera/file access to work.
+    Referenced in AndroidManifest.xml FileProvider as android:resource="@xml/file_paths"
+    
+    Purpose: Defines secure file paths that can be shared with other apps
+    Needed for: Camera photo capture, file storage, image sharing
+-->
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    
+    <!--
+        External Storage Path for Camera Photos
+        Allows the app to save and share photos taken by the camera
+        Path: /storage/emulated/0/Android/data/com.airportpro.app/files/Pictures
+    -->
+    <external-path 
+        name="my_images" 
+        path="Android/data/com.airportpro.app/files/Pictures" />
+    
+    <!--
+        External Files Path (General)
+        Allows access to app-specific external files directory
+        Path: /storage/emulated/0/Android/data/com.airportpro.app/files/
+    -->
+    <external-files-path 
+        name="external_files" 
+        path="." />
+    
+    <!--
+        Cache Directory
+        For temporary files and cached images
+        Path: /storage/emulated/0/Android/data/com.airportpro.app/cache/
+    -->
+    <external-cache-path 
+        name="external_cache" 
+        path="." />
+    
+    <!--
+        Internal Cache
+        For temporary files stored in internal storage
+    -->
+    <cache-path 
+        name="cache" 
+        path="." />
+    
+    <!--
+        Internal Files
+        For app-private files in internal storage
+    -->
+    <files-path 
+        name="files" 
+        path="." />
+
+</paths>
+
+<!--
+FILE LOCATION:
+android/app/src/main/res/xml/file_paths.xml
+
+FULL PATH STRUCTURE:
+android/
+└── app/
+    └── src/
+        └── main/
+            └── res/
+                └── xml/
+                    ├── nfc_tech_filter.xml
+                    └── file_paths.xml  ← CREATE THIS FILE
+
+IF THE xml/ FOLDER DOESN'T EXIST:
+1. Navigate to: android/app/src/main/res/
+2. Create a new folder named "xml"
+3. Create this file inside it
+
+WHY THIS IS NEEDED:
+Without this file:
+- Camera photo capture will fail with SecurityException
+- Cannot share files between app components
+- Error: "java.lang.IllegalArgumentException: Failed to find configured root"
+
+WHAT EACH PATH TYPE MEANS:
+- external-path: Full path to external storage root
+- external-files-path: App's external files directory (Android/data/[package]/files)
+- external-cache-path: App's external cache directory
+- cache-path: Internal cache directory
+- files-path: Internal files directory
+
+SECURITY:
+These paths are secure and only accessible by your app.
+FileProvider ensures files are shared safely without exposing actual file paths.
+-->

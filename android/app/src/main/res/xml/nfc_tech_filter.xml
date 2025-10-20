@@ -1,6 +1,43 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    NFC Tech Filter for Passport Reading
+    
+    CRITICAL: This file MUST exist for NFC passport reading to work.
+    Referenced in AndroidManifest.xml as android:resource="@xml/nfc_tech_filter"
+    
+    Purpose: Tells Android which NFC technologies this app can handle
+    For ePassports/MRTD: We need IsoDep (ISO 14443-4 protocol)
+-->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <tech-list>
+        <!--
+            IsoDep: ISO 14443-4 standard
+            Used by electronic passports (ePassports) for secure communication
+            This allows the app to read NFC-enabled passports
+        -->
         <tech>android.nfc.tech.IsoDep</tech>
     </tech-list>
 </resources>
+
+<!--
+FILE LOCATION:
+android/app/src/main/res/xml/nfc_tech_filter.xml
+
+FULL PATH STRUCTURE:
+android/
+└── app/
+    └── src/
+        └── main/
+            └── res/
+                └── xml/
+                    └── nfc_tech_filter.xml  ← CREATE THIS FILE
+
+IF THE xml/ FOLDER DOESN'T EXIST:
+1. Navigate to: android/app/src/main/res/
+2. Create a new folder named "xml"
+3. Create this file inside it
+
+WHY THIS IS NEEDED:
+Without this file, your app will crash when trying to handle NFC intents
+Error: "android.content.res.Resources$NotFoundException: Resource ID #0x7f160000"
+-->

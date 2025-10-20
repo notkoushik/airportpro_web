@@ -7,6 +7,8 @@ import { AnimatePresence, motion } from 'framer-motion';
 import Home from './pages/Home';
 import NotFound from './pages/NotFound';
 import UltimateLivenessDetector from './components/liveness/UltimateLivenessDetector';
+import { defineCustomElements } from '@ionic/pwa-elements/loader';
+defineCustomElements(window);
 
 
 // Lazy load secondary pages for better performance
