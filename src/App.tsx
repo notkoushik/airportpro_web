@@ -1,5 +1,5 @@
 import React, { Suspense, lazy } from 'react';
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { ErrorBoundary } from 'react-error-boundary';
 import { AnimatePresence, motion } from 'framer-motion';
 
@@ -19,7 +19,7 @@ const Map = lazy(() => import('./pages/Map'));
 const More = lazy(() => import('./pages/More'));
 
 // Lazy load scanning and identity components (heavy components)
-const ProfessionalPassportScanner = lazy(() => import('@/components/passport/ProfessionalPassportScanner'));
+const UnifiedPassportScanner = lazy(() => import('@/components/passport/UnifiedPassportScanner'));
 const ComprehensiveIdentityVerification = lazy(() => import('@/components/passport/ComprehensiveIdentityVerification'));
 
 
@@ -103,6 +103,7 @@ const RouteGuard: React.FC<{ children: React.ReactNode; requireAuth?: boolean }>
 // Main App Component
 const App: React.FC = () => {
   const location = useLocation();
+  const navigate = useNavigate();
 
   return (
     <ErrorBoundary
@@ -245,7 +246,11 @@ const App: React.FC = () => {
                 <RouteGuard>
                   <PageTransition location={location}>
                     <Suspense fallback={<LoadingSpinner />}>
-                      <ProfessionalPassportScanner />
+                      <UnifiedPassportScanner
+                        onScanSuccess={(result) => {
+                          navigate('/identity-verification', { state: { passportData: result.data } });
+                        }}
+                      />
                     </Suspense>
                   </PageTransition>
                 </RouteGuard>

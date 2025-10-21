@@ -16,6 +16,7 @@ import java.io.ByteArrayInputStream
 import java.io.DataInputStream
 import java.io.InputStream
 import java.security.MessageDigest
+import java.security.Security
 import java.util.*
 import javax.crypto.Cipher
 import javax.crypto.Mac
@@ -259,7 +260,9 @@ class PassportRepository {
     }
 
     private fun calculateMac(key: SecretKeySpec, data: ByteArray): ByteArray {
-        val mac = Mac.getInstance("ISO9797Alg3Mac", "BC")
+        val provider = Security.getProvider("BC")
+            ?: throw IllegalStateException("Bouncy Castle provider not found. Make sure it's registered in the Application class.")
+        val mac = Mac.getInstance("ISO9797Alg3Mac", provider)
         mac.init(key)
         return mac.doFinal(data)
     }
@@ -272,16 +275,20 @@ class PassportRepository {
         for (i in 0..data.size - tag.size) {
             if (data.copyOfRange(i, i + tag.size).contentEquals(tag)) {
                 val len: Int
+                val lenByteIndex = i + tag.size
+                if (lenByteIndex >= data.size) continue
+
                 val lenOffset: Int
-                if (data.size > i + tag.size && data[i + tag.size] == 0x81.toByte()) {
-                    len = data.getOrElse(i + tag.size + 1) { 0 }.toInt() and 0xFF
+                if (data[lenByteIndex] == 0x81.toByte()) {
+                    val actualLenByteIndex = lenByteIndex + 1
+                    if (actualLenByteIndex >= data.size) continue
+                    len = data[actualLenByteIndex].toInt() and 0xFF
                     lenOffset = 2
-                } else if (data.size > i + tag.size) {
-                    len = data[i + tag.size].toInt() and 0xFF
-                    lenOffset = 1
                 } else {
-                    continue
+                    len = data[lenByteIndex].toInt() and 0xFF
+                    lenOffset = 1
                 }
+
                 val start = i + tag.size
                 val end = start + lenOffset + len
                 if (end > data.size) continue
@@ -293,13 +300,17 @@ class PassportRepository {
 
     private fun parseLength(bytes: ByteArray): Int {
         if (bytes.isEmpty()) return 0
-        if (bytes[0] == 0x81.toByte()) {
-            return bytes.getOrElse(1) { 0 }.toInt() and 0xFF
-        }
-        if (bytes[0] == 0x82.toByte()) {
-            val high = bytes.getOrElse(1) { 0 }.toInt() and 0xFF
-            val low = bytes.getOrElse(2) { 0 }.toInt() and 0xFF
-            return (high shl 8) or low
+        when (bytes[0]) {
+            0x81.toByte() -> {
+                if (bytes.size < 2) return 0 // Malformed length
+                return bytes[1].toInt() and 0xFF
+            }
+            0x82.toByte() -> {
+                if (bytes.size < 3) return 0 // Malformed length
+                val high = bytes[1].toInt() and 0xFF
+                val low = bytes[2].toInt() and 0xFF
+                return (high shl 8) or low
+            }
         }
         return bytes[0].toInt() and 0xFF
     }
@@ -360,7 +371,7 @@ class PassportRepository {
             return byteArrayOf(cla, ins, p1, p2) + dataLen + data + leByte
         }
 
-        fun toHeaderBytes(): ByteArray = byteArrayOf(cla, ins, p1, p2, data.size.toByte())
+        fun toHeaderBytes(): ByteArray = byteArrayOf(cla, ins, p1, p2)
 
         override fun equals(other: Any?): Boolean {
             if (this === other) return true
