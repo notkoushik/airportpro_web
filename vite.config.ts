@@ -1,4 +1,4 @@
-// vite.config.ts
+// ...existing code...
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
@@ -9,26 +9,27 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src'),
     },
+    dedupe: ['react', 'react-dom'],
   },
   build: {
     target: 'esnext',
     minify: 'esbuild',
     commonjsOptions: {
-      include: [/node_modules/],
       transformMixedEsModules: true,
     },
     rollupOptions: {
       output: {
         manualChunks: {
-          'tesseract-vendor': ['tesseract.js']
+          'tesseract-vendor': ['tesseract.js'],
+          'react-vendor': ['react', 'react-dom'],
+          'motion-vendor': ['framer-motion']
         }
       }
     }
   },
   optimizeDeps: {
-    include: ['tesseract.js', 'react', 'react-dom', 'framer-motion'],
+    include: ['tesseract.js'],
     exclude: [],
-    // CRITICAL: Force pre-bundling of framer-motion
     esbuildOptions: {
       target: 'esnext'
     }
@@ -37,9 +38,6 @@ export default defineConfig({
   publicDir: 'public',
   worker: {
     format: 'es'
-  },
-  // CRITICAL: Handle React exports properly
-  ssr: {
-    noExternal: ['framer-motion']
   }
 })
+// ...existing code...

@@ -50,7 +50,6 @@
     "dynamsoft-label-recognizer": "^3.4.32",
     "dynamsoft-mrz-scanner": "^3.0.3",
     "embla-carousel-react": "^8.6.0",
-    "framer-motion": "^10.18.0",
     "input-otp": "^1.4.2",
     "lucide-react": "^0.544.0",
     "next-themes": "^0.4.6",
