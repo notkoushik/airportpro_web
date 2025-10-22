@@ -55,7 +55,7 @@ interface UnifiedPassportScannerProps {
 const preprocessImage = async (imageDataUrl: string): Promise<string> => {
   const img = new Image();
   img.src = imageDataUrl;
-  
+
   await new Promise((resolve, reject) => {
     img.onload = resolve;
     img.onerror = reject;
@@ -98,7 +98,7 @@ const preprocessImage = async (imageDataUrl: string): Promise<string> => {
   }
   ctx.putImageData(contrastImageData, 0, 0);
 
-  // 4. Binarization/Thresholding
+  // 4. Binarization/Thresholding (OPTIONAL - can be commented out for testing)
   const thresholdImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
   const thresholdData = thresholdImageData.data;
   const threshold = 135;
@@ -121,7 +121,7 @@ const extractMRZLines = (text: string): string[] => {
 
   for (const line of lines) {
     let cleanLine = line.trim().toUpperCase();
-    
+
     // Replace invalid chars with <
     cleanLine = cleanLine
       .replace(/[^A-Z0-9<]/g, '<')
@@ -155,7 +155,7 @@ const parseEnhancedMRZ = (mrzLines: string[]): PassportData | null => {
     const countryCode = line1.substring(2, 5) || 'UNK';
 
     // Extract names from first line
-    const nameParts = line1.substring(5).split('<<'); // [ "SURNAME", "GIVEN<NAMES" ]
+    const nameParts = line1.substring(5).split('<<');
     const surname = (nameParts[0] || '').replace(/<+$/g, '').replace(/</g, ' ').trim() || 'UNKNOWN';
     const givenNames = (nameParts[1] || '').replace(/<+$/g, '').replace(/</g, ' ').trim() || 'UNKNOWN';
 
@@ -277,15 +277,15 @@ const UnifiedPassportScanner: React.FC<UnifiedPassportScannerProps> = ({
     return !!(window as any).Capacitor;
   };
 
-  // Configure Tesseract with proper worker path for mobile
+  // FIXED: Configure Tesseract with CORRECT CDN paths
   const configureTesseract = () => {
     if (isCapacitor()) {
       console.log('⚡ Capacitor environment detected. Using CDN paths for Tesseract.');
-      // Use CDN for Android WebView to avoid issues with local file paths
+      // FIXED: Use correct paths that actually exist
       return {
-        workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@v6.0.1/dist/worker.min.js',
-        langPath: 'https://tessdata.projectnaptha.com/4.0.0',
-        corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@v6.0.0/tesseract-core.wasm.js',
+        workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/worker.min.js',
+        langPath: 'https://tessdata.projectnaptha.com/4.0.0_best', // FIXED: Use 4.0.0_best or 4.0.0_fast
+        corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@5/tesseract-core.wasm.js',
       };
     }
     return {}; // Use defaults for web
@@ -314,21 +314,27 @@ const UnifiedPassportScanner: React.FC<UnifiedPassportScannerProps> = ({
 
         // Preprocess image
         const preprocessedImage = await preprocessImage(image.dataUrl);
+        console.log('✅ Preprocessing completed');
 
-        console.log('🔍 Running Tesseract OCR...');
-        // Run Tesseract OCR
-        const result = await Tesseract.recognize(preprocessedImage, 'mrz', {
+        console.log('🔍 Starting Tesseract OCR...');
+        
+        // FIXED: Use 'eng' language with correct config
+        const result = await Tesseract.recognize(preprocessedImage, 'eng', {
           logger: (m: any) => {
             if (m.status === 'recognizing text') {
               console.log(`OCR Progress: ${Math.round(m.progress * 100)}%`);
             }
+            console.log('Tesseract status:', m.status, m.progress);
           },
           ...configureTesseract() // Add Capacitor-specific config
         });
 
+        console.log('✅ Tesseract OCR completed');
+
         const extractedText = result.data.text;
-        const confidence = result.data.confidence / 100; // Tesseract gives 0-100
-        console.log(`🔍 Raw extracted text (Confidence: ${confidence.toFixed(2)})`, extractedText);
+        const confidence = result.data.confidence / 100;
+        console.log(`🔍 Raw extracted text (Confidence: ${confidence.toFixed(2)})`);
+        console.log('Extracted text:', extractedText);
 
         // Extract MRZ lines
         const mrzLines = extractMRZLines(extractedText);
@@ -341,7 +347,7 @@ const UnifiedPassportScanner: React.FC<UnifiedPassportScannerProps> = ({
             const scanResult: ScanResult = {
               success: true,
               data: passportData,
-              confidence: confidence, // Use the real confidence score
+              confidence: confidence,
               timestamp: Date.now(),
               imageData: image.dataUrl,
               ocrMethod: 'Unified Tesseract.js OCR'
@@ -370,7 +376,7 @@ const UnifiedPassportScanner: React.FC<UnifiedPassportScannerProps> = ({
     } catch (error) {
       console.error('❌ Unified scan error:', error);
       setError(error instanceof Error ? error.message : 'Scan failed');
-      
+
       const failureResult: ScanResult = {
         success: false,
         data: {
