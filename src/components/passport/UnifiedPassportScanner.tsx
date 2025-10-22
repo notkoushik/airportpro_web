@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,11 +16,15 @@ import {
   XCircle,
   Eye,
   RotateCcw,
-  Lightbulb
+  Lightbulb,
+  ShieldCheck,
+  AlertCircle
 } from "lucide-react";
 import Tesseract from 'tesseract.js';
 
-// Type Definitions
+// =====================================================
+// TYPE DEFINITIONS
+// =====================================================
 export interface PassportData {
   documentType: string;
   countryCode: string;
@@ -33,6 +37,12 @@ export interface PassportData {
   nationality: string;
   gender?: string;
   rawMRZ: string;
+  checksumValid?: {
+    documentNumber: boolean;
+    dateOfBirth: boolean;
+    expirationDate: boolean;
+    composite: boolean;
+  };
 }
 
 export interface ScanResult {
@@ -50,9 +60,46 @@ interface UnifiedPassportScannerProps {
 }
 
 // =====================================================
-// IMAGE PREPROCESSING FUNCTION
+// MRZ CHECKSUM VALIDATION
 // =====================================================
-const preprocessImage = async (imageDataUrl: string): Promise<string> => {
+const calculateCheckDigit = (data: string): number => {
+  const weights = [7, 3, 1];
+  let sum = 0;
+
+  for (let i = 0; i < data.length; i++) {
+    const char = data[i];
+    let value: number;
+
+    if (char >= '0' && char <= '9') {
+      value = parseInt(char);
+    } else if (char >= 'A' && char <= 'Z') {
+      value = char.charCodeAt(0) - 'A'.charCodeAt(0) + 10;
+    } else if (char === '<') {
+      value = 0;
+    } else {
+      value = 0;
+    }
+
+    sum += value * weights[i % 3];
+  }
+
+  return sum % 10;
+};
+
+const validateCheckDigit = (data: string, checkDigit: string): boolean => {
+  if (!checkDigit || checkDigit === '<') return false;
+  const expected = calculateCheckDigit(data);
+  const actual = parseInt(checkDigit);
+  return expected === actual;
+};
+
+// =====================================================
+// ADVANCED IMAGE PREPROCESSING
+// =====================================================
+const preprocessImage = async (
+  imageDataUrl: string,
+  setPreprocessingStage?: (stage: string) => void
+): Promise<string> => {
   const img = new Image();
   img.src = imageDataUrl;
 
@@ -65,7 +112,7 @@ const preprocessImage = async (imageDataUrl: string): Promise<string> => {
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('Could not get canvas context');
 
-  // Resize if needed for performance
+  // Resize for optimal OCR performance
   const MAX_WIDTH = 1600;
   let scale = 1;
   if (img.width > MAX_WIDTH) {
@@ -74,68 +121,166 @@ const preprocessImage = async (imageDataUrl: string): Promise<string> => {
   canvas.width = img.width * scale;
   canvas.height = img.height * scale;
 
-  // 1. Draw scaled image
+  setPreprocessingStage?.('Scaling image...');
   ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-  // 2. Convert to grayscale
-  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  const data = imageData.data;
+  // Focus on bottom 35% (MRZ region)
+  const roiHeight = Math.floor(canvas.height * 0.35);
+  const roiY = canvas.height - roiHeight;
+  const roiImageData = ctx.getImageData(0, roiY, canvas.width, roiHeight);
+
+  // Create new canvas for ROI
+  const roiCanvas = document.createElement('canvas');
+  roiCanvas.width = canvas.width;
+  roiCanvas.height = roiHeight;
+  const roiCtx = roiCanvas.getContext('2d');
+  if (!roiCtx) throw new Error('Could not get ROI context');
+  roiCtx.putImageData(roiImageData, 0, 0);
+
+  setPreprocessingStage?.('Converting to grayscale...');
+  // Grayscale conversion
+  const grayImageData = roiCtx.getImageData(0, 0, roiCanvas.width, roiCanvas.height);
+  const data = grayImageData.data;
   for (let i = 0; i < data.length; i += 4) {
     const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
     data[i] = data[i + 1] = data[i + 2] = gray;
   }
-  ctx.putImageData(imageData, 0, 0);
+  roiCtx.putImageData(grayImageData, 0, 0);
 
-  // 3. Increase contrast
-  const contrastFactor = 1.5;
-  const contrastImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  setPreprocessingStage?.('Applying noise reduction...');
+  // Simple noise reduction (3x3 box blur)
+  const blurImageData = roiCtx.getImageData(0, 0, roiCanvas.width, roiCanvas.height);
+  const blurData = blurImageData.data;
+  const width = roiCanvas.width;
+  const height = roiCanvas.height;
+
+  for (let y = 1; y < height - 1; y++) {
+    for (let x = 1; x < width - 1; x++) {
+      let sum = 0;
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          const idx = ((y + dy) * width + (x + dx)) * 4;
+          sum += data[idx];
+        }
+      }
+      const idx = (y * width + x) * 4;
+      const avg = sum / 9;
+      blurData[idx] = blurData[idx + 1] = blurData[idx + 2] = avg;
+    }
+  }
+  roiCtx.putImageData(blurImageData, 0, 0);
+
+  setPreprocessingStage?.('Enhancing contrast...');
+  // Enhanced contrast
+  const contrastFactor = 1.6;
+  const contrastImageData = roiCtx.getImageData(0, 0, roiCanvas.width, roiCanvas.height);
   const contrastData = contrastImageData.data;
   const intercept = 128 * (1 - contrastFactor);
+  
   for (let i = 0; i < contrastData.length; i += 4) {
     contrastData[i] = Math.max(0, Math.min(255, contrastData[i] * contrastFactor + intercept));
     contrastData[i + 1] = Math.max(0, Math.min(255, contrastData[i + 1] * contrastFactor + intercept));
     contrastData[i + 2] = Math.max(0, Math.min(255, contrastData[i + 2] * contrastFactor + intercept));
   }
-  ctx.putImageData(contrastImageData, 0, 0);
+  roiCtx.putImageData(contrastImageData, 0, 0);
 
-  // 4. Binarization/Thresholding (OPTIONAL - can be commented out for testing)
-  const thresholdImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  const thresholdData = thresholdImageData.data;
-  const threshold = 135;
-  for (let i = 0; i < thresholdData.length; i += 4) {
-    const value = thresholdData[i] > threshold ? 255 : 0;
-    thresholdData[i] = thresholdData[i + 1] = thresholdData[i + 2] = value;
+  setPreprocessingStage?.('Applying adaptive thresholding...');
+  // Adaptive thresholding (Otsu's method approximation)
+  const histImageData = roiCtx.getImageData(0, 0, roiCanvas.width, roiCanvas.height);
+  const histData = histImageData.data;
+  
+  // Calculate histogram
+  const histogram = new Array(256).fill(0);
+  for (let i = 0; i < histData.length; i += 4) {
+    histogram[histData[i]]++;
   }
-  ctx.putImageData(thresholdImageData, 0, 0);
 
-  console.log('🖼️ Image preprocessing complete.');
-  return canvas.toDataURL('image/png');
-};
+  // Calculate optimal threshold
+  const totalPixels = roiCanvas.width * roiCanvas.height;
+  let sum = 0;
+  for (let i = 0; i < 256; i++) {
+    sum += i * histogram[i];
+  }
 
-// =====================================================
-// MRZ EXTRACTION AND PARSING FUNCTIONS
-// =====================================================
-const extractMRZLines = (text: string): string[] => {
-  const lines = text.split('\n');
-  const mrzLines: string[] = [];
+  let sumB = 0;
+  let wB = 0;
+  let wF = 0;
+  let maxVariance = 0;
+  let threshold = 0;
 
-  for (const line of lines) {
-    let cleanLine = line.trim().toUpperCase();
+  for (let t = 0; t < 256; t++) {
+    wB += histogram[t];
+    if (wB === 0) continue;
+    
+    wF = totalPixels - wB;
+    if (wF === 0) break;
 
-    // Replace invalid chars with <
-    cleanLine = cleanLine
-      .replace(/[^A-Z0-9<]/g, '<')
-      .replace(/\s+/g, '');
+    sumB += t * histogram[t];
+    const mB = sumB / wB;
+    const mF = (sum - sumB) / wF;
+    const variance = wB * wF * (mB - mF) * (mB - mF);
 
-    // Look for MRZ patterns (length 44 typically, contains < symbols)
-    if (cleanLine.length >= 36 && cleanLine.includes('<')) {
-      if (cleanLine.startsWith('P<') || /^[A-Z0-9<]{36,}$/.test(cleanLine)) {
-        mrzLines.push(cleanLine);
-      }
+    if (variance > maxVariance) {
+      maxVariance = variance;
+      threshold = t;
     }
   }
 
-  return mrzLines.slice(0, 2);
+  console.log(`📊 Adaptive threshold calculated: ${threshold}`);
+
+  // Apply threshold
+  for (let i = 0; i < histData.length; i += 4) {
+    const value = histData[i] > threshold ? 255 : 0;
+    histData[i] = histData[i + 1] = histData[i + 2] = value;
+  }
+  roiCtx.putImageData(histImageData, 0, 0);
+
+  setPreprocessingStage?.('Preprocessing complete');
+  console.log('🖼️ Advanced preprocessing complete with adaptive thresholding.');
+  return roiCanvas.toDataURL('image/png');
+};
+
+// =====================================================
+// MRZ EXTRACTION AND PARSING
+// =====================================================
+const extractMRZLines = (text: string): string[] => {
+  const lines = text.split('\n');
+  const mrzCandidates: Array<{ line: string; score: number }> = [];
+
+  for (const line of lines) {
+    let cleanLine = line.trim().toUpperCase();
+    
+    // Replace common OCR errors
+    cleanLine = cleanLine
+      .replace(/[^A-Z0-9<]/g, '<')
+      .replace(/\s+/g, '')
+      .replace(/O/g, '0') // Common OCR error
+      .replace(/I/g, '1'); // Common OCR error
+
+    // Score each line based on MRZ characteristics
+    let score = 0;
+    
+    if (cleanLine.length >= 44 && cleanLine.length <= 45) score += 10;
+    if (cleanLine.includes('<')) score += 5;
+    if (cleanLine.startsWith('P<')) score += 15;
+    if (/^[A-Z0-9<]{44}$/.test(cleanLine)) score += 10;
+    
+    // Count digits (MRZ second line has many digits)
+    const digitCount = (cleanLine.match(/\d/g) || []).length;
+    if (digitCount >= 8) score += 5;
+
+    if (score >= 10) {
+      mrzCandidates.push({ line: cleanLine, score });
+    }
+  }
+
+  // Sort by score and take top 2
+  mrzCandidates.sort((a, b) => b.score - a.score);
+  const topLines = mrzCandidates.slice(0, 2).map(c => c.line);
+
+  console.log('🔍 MRZ candidate lines with scores:', mrzCandidates.slice(0, 3));
+  
+  return topLines;
 };
 
 const parseEnhancedMRZ = (mrzLines: string[]): PassportData | null => {
@@ -147,39 +292,52 @@ const parseEnhancedMRZ = (mrzLines: string[]): PassportData | null => {
       return null;
     }
 
-    const line1 = mrzLines[0];
-    const line2 = mrzLines[1];
+    const line1 = mrzLines[0].padEnd(44, '<');
+    const line2 = mrzLines[1].padEnd(44, '<');
 
     // Parse first line - P<COUNTRY<SURNAME<<GIVENNAMES
     const documentType = line1.charAt(0) || 'P';
     const countryCode = line1.substring(2, 5) || 'UNK';
 
-    // Extract names from first line
+    // Extract names
     const nameParts = line1.substring(5).split('<<');
     const surname = (nameParts[0] || '').replace(/<+$/g, '').replace(/</g, ' ').trim() || 'UNKNOWN';
     const givenNames = (nameParts[1] || '').replace(/<+$/g, '').replace(/</g, ' ').trim() || 'UNKNOWN';
 
-    // Parse second line with correct field positions
-    let documentNumber = '';
-    let birthDate = '';
-    let gender = '';
-    let expiryDate = '';
-    let personalNumber = '';
+    // Parse second line with checksum validation
+    const documentNumber = line2.substring(0, 9).replace(/<+$/g, '');
+    const docNumCheck = line2.charAt(9);
+    const nationality = line2.substring(10, 13);
+    const birthDate = line2.substring(13, 19);
+    const birthDateCheck = line2.charAt(19);
+    const gender = line2.charAt(20) || 'U';
+    const expiryDate = line2.substring(21, 27);
+    const expiryDateCheck = line2.charAt(27);
+    const personalNumber = line2.substring(28, 42).replace(/<+$/g, '');
+    const personalNumCheck = line2.charAt(42);
+    const compositeCheck = line2.charAt(43);
 
-    if (line2.length >= 44) {
-      documentNumber = line2.substring(0, 9).replace(/<+$/g, '');
-      birthDate = line2.substring(13, 19);
-      gender = line2.charAt(20) || 'U';
-      expiryDate = line2.substring(21, 27);
-      personalNumber = line2.substring(28, 42).replace(/<+$/g, '');
-    }
+    // Validate checksums
+    const checksumValid = {
+      documentNumber: validateCheckDigit(documentNumber, docNumCheck),
+      dateOfBirth: validateCheckDigit(birthDate, birthDateCheck),
+      expirationDate: validateCheckDigit(expiryDate, expiryDateCheck),
+      composite: false // Complex composite check
+    };
+
+    // Composite check validation
+    const compositeData = documentNumber + docNumCheck + birthDate + birthDateCheck + 
+                         expiryDate + expiryDateCheck + personalNumber + personalNumCheck;
+    checksumValid.composite = validateCheckDigit(compositeData, compositeCheck);
+
+    console.log('✅ Checksum validation results:', checksumValid);
 
     // Format dates
     const formattedBirthDate = formatMRZDateEnhanced(birthDate);
     const formattedExpiryDate = formatMRZDateEnhanced(expiryDate);
 
-    // Get nationality
-    const nationality = getEnhancedCountryName(countryCode);
+    // Get nationality name
+    const nationalityName = getEnhancedCountryName(nationality);
 
     const passportData: PassportData = {
       documentType,
@@ -190,9 +348,10 @@ const parseEnhancedMRZ = (mrzLines: string[]): PassportData | null => {
       dateOfBirth: formattedBirthDate,
       expirationDate: formattedExpiryDate,
       personalNumber: personalNumber || '',
-      nationality,
+      nationality: nationalityName,
       gender,
-      rawMRZ: mrzLines.join('\n')
+      rawMRZ: mrzLines.join('\n'),
+      checksumValid
     };
 
     console.log('✅ Enhanced parsing result:', passportData);
@@ -270,6 +429,8 @@ const UnifiedPassportScanner: React.FC<UnifiedPassportScannerProps> = ({
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [showRawMRZ, setShowRawMRZ] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [preprocessingStage, setPreprocessingStage] = useState<string>('');
+  const [ocrProgress, setOcrProgress] = useState<number>(0);
   const resultRef = useRef<HTMLDivElement>(null);
 
   // Detect if running in Capacitor/Android
@@ -277,18 +438,17 @@ const UnifiedPassportScanner: React.FC<UnifiedPassportScannerProps> = ({
     return !!(window as any).Capacitor;
   };
 
-  // FIXED: Configure Tesseract with CORRECT CDN paths
+  // FIXED: Configure Tesseract with correct CDN paths
   const configureTesseract = () => {
     if (isCapacitor()) {
       console.log('⚡ Capacitor environment detected. Using CDN paths for Tesseract.');
-      // FIXED: Use correct paths that actually exist
       return {
         workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/worker.min.js',
-        langPath: 'https://tessdata.projectnaptha.com/4.0.0_best', // FIXED: Use 4.0.0_best or 4.0.0_fast
+        langPath: 'https://tessdata.projectnaptha.com/4.0.0_best',
         corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@5/tesseract-core.wasm.js',
       };
     }
-    return {}; // Use defaults for web
+    return {};
   };
 
   const takePicture = async () => {
@@ -296,6 +456,8 @@ const UnifiedPassportScanner: React.FC<UnifiedPassportScannerProps> = ({
       setScanning(true);
       setScanResult(null);
       setError(null);
+      setOcrProgress(0);
+      setPreprocessingStage('');
 
       console.log('📷 Starting unified passport scan...');
 
@@ -312,29 +474,33 @@ const UnifiedPassportScanner: React.FC<UnifiedPassportScannerProps> = ({
         setImagePreview(image.dataUrl);
         console.log('📷 Image captured, preprocessing...');
 
-        // Preprocess image
-        const preprocessedImage = await preprocessImage(image.dataUrl);
+        // Advanced preprocessing with progress updates
+        const preprocessedImage = await preprocessImage(image.dataUrl, setPreprocessingStage);
         console.log('✅ Preprocessing completed');
 
-        console.log('🔍 Starting Tesseract OCR...');
-        
-        // FIXED: Use 'eng' language with correct config
+        setPreprocessingStage('Running OCR...');
+        console.log('🔍 Starting Tesseract OCR with optimized parameters...');
+
+        // FIXED: Use 'eng' with optimized parameters
         const result = await Tesseract.recognize(preprocessedImage, 'eng', {
           logger: (m: any) => {
             if (m.status === 'recognizing text') {
-              console.log(`OCR Progress: ${Math.round(m.progress * 100)}%`);
+              const progress = Math.round(m.progress * 100);
+              setOcrProgress(progress);
+              console.log(`OCR Progress: ${progress}%`);
             }
-            console.log('Tesseract status:', m.status, m.progress);
           },
-          ...configureTesseract() // Add Capacitor-specific config
+          tessedit_pageseg_mode: Tesseract.PSM.SINGLE_BLOCK,
+          tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789<',
+          ...configureTesseract()
         });
 
         console.log('✅ Tesseract OCR completed');
 
         const extractedText = result.data.text;
         const confidence = result.data.confidence / 100;
-        console.log(`🔍 Raw extracted text (Confidence: ${confidence.toFixed(2)})`);
-        console.log('Extracted text:', extractedText);
+        console.log(`🔍 Extracted ${extractedText.length} characters (Confidence: ${confidence.toFixed(2)})`);
+        console.log('Raw text:', extractedText);
 
         // Extract MRZ lines
         const mrzLines = extractMRZLines(extractedText);
@@ -350,7 +516,7 @@ const UnifiedPassportScanner: React.FC<UnifiedPassportScannerProps> = ({
               confidence: confidence,
               timestamp: Date.now(),
               imageData: image.dataUrl,
-              ocrMethod: 'Unified Tesseract.js OCR'
+              ocrMethod: 'Advanced Tesseract.js OCR with Checksums'
             };
 
             setScanResult(scanResult);
@@ -368,7 +534,7 @@ const UnifiedPassportScanner: React.FC<UnifiedPassportScannerProps> = ({
             throw new Error('Failed to parse valid passport data from MRZ');
           }
         } else {
-          throw new Error('No valid MRZ detected in image');
+          throw new Error('No valid MRZ detected in image. Please ensure MRZ lines are clearly visible.');
         }
       }
 
@@ -394,7 +560,7 @@ const UnifiedPassportScanner: React.FC<UnifiedPassportScannerProps> = ({
         confidence: 0,
         timestamp: Date.now(),
         imageData: imagePreview || undefined,
-        ocrMethod: 'Unified OCR - Failed'
+        ocrMethod: 'Advanced OCR - Failed'
       };
 
       setScanResult(failureResult);
@@ -408,6 +574,16 @@ const UnifiedPassportScanner: React.FC<UnifiedPassportScannerProps> = ({
     setImagePreview(null);
     setError(null);
     setShowRawMRZ(false);
+    setPreprocessingStage('');
+    setOcrProgress(0);
+  };
+
+  // Helper to check if checksums are valid
+  const hasValidChecksums = (data: PassportData): boolean => {
+    if (!data.checksumValid) return false;
+    return data.checksumValid.documentNumber && 
+           data.checksumValid.dateOfBirth && 
+           data.checksumValid.expirationDate;
   };
 
   return (
@@ -420,15 +596,15 @@ const UnifiedPassportScanner: React.FC<UnifiedPassportScannerProps> = ({
               <div>
                 <CardTitle className="text-2xl flex items-center gap-2">
                   <FileText className="w-6 h-6" />
-                  Unified Passport Scanner
+                  Professional Passport Scanner
                 </CardTitle>
                 <CardDescription>
-                  Advanced OCR • Enhanced MRZ Extraction • High Accuracy
+                  Advanced OCR • Checksum Validation • Adaptive Processing
                 </CardDescription>
               </div>
               <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
                 <CheckCircle className="w-3 h-3 mr-1" />
-                OCR Ready
+                Production Ready
               </Badge>
             </div>
           </CardHeader>
@@ -437,9 +613,9 @@ const UnifiedPassportScanner: React.FC<UnifiedPassportScannerProps> = ({
         {/* Scanner Card */}
         <Card>
           <CardHeader>
-            <CardTitle>Professional Document Scanner</CardTitle>
+            <CardTitle>Document Scanner</CardTitle>
             <CardDescription>
-              AI-powered MRZ extraction with enhanced preprocessing
+              AI-powered MRZ extraction with enhanced security validation
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -454,14 +630,24 @@ const UnifiedPassportScanner: React.FC<UnifiedPassportScannerProps> = ({
               ) : scanning ? (
                 <div className="text-center text-white">
                   <CameraIcon className="w-16 h-16 mx-auto mb-4 animate-pulse" />
-                  <p className="text-lg font-medium">Processing with Unified OCR</p>
-                  <p className="text-sm text-slate-300">Enhanced MRZ extraction in progress</p>
+                  <p className="text-lg font-medium">{preprocessingStage || 'Processing...'}</p>
+                  {ocrProgress > 0 && (
+                    <div className="mt-4 w-64 mx-auto">
+                      <div className="bg-slate-700 rounded-full h-2">
+                        <div 
+                          className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                          style={{ width: `${ocrProgress}%` }}
+                        />
+                      </div>
+                      <p className="text-sm text-slate-300 mt-2">OCR Progress: {ocrProgress}%</p>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="text-center text-white">
                   <FileText className="w-16 h-16 mx-auto mb-4 text-slate-400" />
-                  <p className="text-lg font-medium">Ready for Unified Scan</p>
-                  <p className="text-sm text-slate-300">Ensure passport MRZ lines are clearly visible</p>
+                  <p className="text-lg font-medium">Ready for Professional Scan</p>
+                  <p className="text-sm text-slate-300">Position MRZ lines at bottom of frame</p>
                 </div>
               )}
             </div>
@@ -473,10 +659,11 @@ const UnifiedPassportScanner: React.FC<UnifiedPassportScannerProps> = ({
                 <AlertDescription>
                   <strong>For best results:</strong>
                   <ul className="mt-2 space-y-1 text-sm">
-                    <li>• Ensure good lighting without shadows or glare</li>
-                    <li>• Keep passport flat and parallel to camera</li>
-                    <li>• Make sure MRZ lines (bottom two lines) are clearly visible</li>
-                    <li>• Avoid any obstructions or fingers covering the text</li>
+                    <li>• Ensure excellent lighting without shadows or glare</li>
+                    <li>• Keep passport completely flat and parallel to camera</li>
+                    <li>• MRZ lines (bottom two lines) must be sharp and clear</li>
+                    <li>• Avoid any obstructions covering the text</li>
+                    <li>• Hold steady until processing completes</li>
                   </ul>
                 </AlertDescription>
               </Alert>
@@ -524,9 +711,24 @@ const UnifiedPassportScanner: React.FC<UnifiedPassportScannerProps> = ({
                     <Badge variant="outline">
                       Confidence: {(scanResult.confidence * 100).toFixed(1)}%
                     </Badge>
-                    <Badge variant="secondary">
-                      {scanResult.ocrMethod}
-                    </Badge>
+                    {scanResult.success && scanResult.data.checksumValid && (
+                      <Badge 
+                        variant={hasValidChecksums(scanResult.data) ? "default" : "destructive"}
+                        className="flex items-center gap-1"
+                      >
+                        {hasValidChecksums(scanResult.data) ? (
+                          <>
+                            <ShieldCheck className="w-3 h-3" />
+                            Verified
+                          </>
+                        ) : (
+                          <>
+                            <AlertCircle className="w-3 h-3" />
+                            Check Failed
+                          </>
+                        )}
+                      </Badge>
+                    )}
                   </div>
                 </div>
               </CardHeader>
@@ -535,27 +737,48 @@ const UnifiedPassportScanner: React.FC<UnifiedPassportScannerProps> = ({
                 {scanResult.success && scanResult.data.surname !== 'SCAN_FAILED' && (
                   <>
                     {/* Profile Section */}
-                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-6 rounded-lg">
-                      <div className="flex items-center gap-4">
-                        <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-                          <User className="w-8 h-8 text-primary" />
-                        </div>
-                        <div>
-                          <h3 className="text-2xl font-bold">
-                            {scanResult.data.givenNames} {scanResult.data.surname}
-                          </h3>
-                          <p className="text-muted-foreground flex items-center gap-1">
-                            <Globe className="w-4 h-4" />
-                            {scanResult.data.nationality} National
-                          </p>
-                        </div>
-                      </div>
-                    </div>
+                    {(() => {
+                      const isValidChecksum = hasValidChecksums(scanResult.data);
+                      return (
+                        <>
+                          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-6 rounded-lg">
+                            <div className="flex items-center gap-4">
+                              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                                <User className="w-8 h-8 text-primary" />
+                              </div>
+                              <div>
+                                <h3 className="text-2xl font-bold">
+                                  {scanResult.data.givenNames} {scanResult.data.surname}
+                                </h3>
+                                <p className="text-muted-foreground flex items-center gap-1">
+                                  <Globe className="w-4 h-4" />
+                                  {scanResult.data.nationality} National
+                                </p>
+                              </div>
+                            </div>
+                          </div>
 
-                    {/* Document Details Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-muted-foreground">
+                          {/* Checksum Status */}
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                            {Object.entries(scanResult.data.checksumValid || {}).map(([key, valid]) => (
+                          <div 
+                            key={key}
+                            className={`p-2 rounded-lg border ${valid ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}
+                          >
+                            <p className="text-xs font-medium text-center">
+                              {key.replace(/([A-Z])/g, ' $1').trim()}
+                            </p>
+                            <p className="text-center mt-1">
+                              {valid ? '✓' : '✗'}
+                            </p>
+                          </div>
+                        ))}
+                          </div>
+
+                          {/* Document Details Grid */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2 text-muted-foreground">
                           <CreditCard className="w-4 h-4" />
                           <span className="text-sm">Document Number</span>
                         </div>
@@ -563,8 +786,8 @@ const UnifiedPassportScanner: React.FC<UnifiedPassportScannerProps> = ({
                       </div>
 
                       <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <Globe className="w-4 h-4" />
+                              <div className="flex items-center gap-2 text-muted-foreground">
+                                <Globe className="w-4 h-4" />
                           <span className="text-sm">Nationality</span>
                         </div>
                         <p className="text-lg font-semibold">{scanResult.data.nationality}</p>
@@ -572,8 +795,8 @@ const UnifiedPassportScanner: React.FC<UnifiedPassportScannerProps> = ({
 
                       <div className="space-y-2">
                         <div className="flex items-center gap-2 text-muted-foreground">
-                          <Calendar className="w-4 h-4" />
-                          <span className="text-sm">Date of Birth</span>
+                                <Calendar className="w-4 h-4" />
+                                <span className="text-sm">Date of Birth</span>
                         </div>
                         <p className="text-lg font-semibold">{scanResult.data.dateOfBirth}</p>
                       </div>
@@ -581,8 +804,8 @@ const UnifiedPassportScanner: React.FC<UnifiedPassportScannerProps> = ({
                       <div className="space-y-2">
                         <div className="flex items-center gap-2 text-muted-foreground">
                           <Calendar className="w-4 h-4" />
-                          <span className="text-sm">Expiration Date</span>
-                        </div>
+                                <span className="text-sm">Expiration Date</span>
+                              </div>
                         <p className="text-lg font-semibold">{scanResult.data.expirationDate}</p>
                       </div>
                     </div>
@@ -606,17 +829,20 @@ const UnifiedPassportScanner: React.FC<UnifiedPassportScannerProps> = ({
                       )}
                     </div>
 
-                    {/* Action Buttons */}
-                    <div className="flex gap-2">
-                      <Button variant="outline" className="flex-1" onClick={resetScanner}>
-                        <RotateCcw className="w-4 h-4 mr-2" />
-                        Scan Again
-                      </Button>
-                      <Button className="flex-1">
-                        <CheckCircle className="w-4 h-4 mr-2" />
-                        Confirm Data
-                      </Button>
-                    </div>
+                          {/* Action Buttons */}
+                          <div className="flex gap-2">
+                            <Button variant="outline" className="flex-1" onClick={resetScanner}>
+                              <RotateCcw className="w-4 h-4 mr-2" />
+                              Scan Again
+                            </Button>
+                            <Button className="flex-1">
+                              <CheckCircle className="w-4 h-4 mr-2" />
+                              Confirm & Continue
+                            </Button>
+                          </div>
+                        </>
+                      );
+                    })()}
                   </>
                 )}
 
@@ -630,9 +856,10 @@ const UnifiedPassportScanner: React.FC<UnifiedPassportScannerProps> = ({
                         <p className="mt-2">{error || 'Unable to extract passport data'}</p>
                         <ul className="mt-2 space-y-1 text-sm">
                           <li>• Ensure passport data page is clearly visible</li>
-                          <li>• Check that MRZ lines are not obscured</li>
-                          <li>• Try different lighting or angle</li>
-                          <li>• Make sure the image is in focus</li>
+                          <li>• Check that MRZ lines are not obscured or blurry</li>
+                          <li>• Try different lighting or reduce glare</li>
+                          <li>• Make sure the image is in sharp focus</li>
+                          <li>• Keep the passport flat without curves</li>
                         </ul>
                       </AlertDescription>
                     </Alert>
