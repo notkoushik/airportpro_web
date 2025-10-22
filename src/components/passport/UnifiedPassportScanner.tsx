@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -52,12 +52,26 @@ export interface ScanResult {
   timestamp: number;
   imageData?: string;
   ocrMethod: string;
+  performanceMetrics?: {
+    capture: number;
+    preprocessing: number;
+    ocr: number;
+    parsing: number;
+    total: number;
+  };
 }
 
 interface UnifiedPassportScannerProps {
   onScanSuccess?: (result: ScanResult) => void;
   onScanFailure?: (result: ScanResult) => void;
 }
+
+// =====================================================
+// HELPER: Detect Capacitor Environment
+// =====================================================
+const isCapacitor = (): boolean => {
+  return !!(window as any).Capacitor;
+};
 
 // =====================================================
 // MRZ CHECKSUM VALIDATION
@@ -94,12 +108,14 @@ const validateCheckDigit = (data: string, checkDigit: string): boolean => {
 };
 
 // =====================================================
-// ADVANCED IMAGE PREPROCESSING
+// MOBILE-OPTIMIZED IMAGE PREPROCESSING
 // =====================================================
 const preprocessImage = async (
   imageDataUrl: string,
   setPreprocessingStage?: (stage: string) => void
 ): Promise<string> => {
+  const perfStart = performance.now();
+  
   const img = new Image();
   img.src = imageDataUrl;
 
@@ -109,11 +125,16 @@ const preprocessImage = async (
   });
 
   const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext('2d', { 
+    willReadFrequently: true  // CRITICAL: WebView optimization hint
+  });
   if (!ctx) throw new Error('Could not get canvas context');
 
-  // Resize for optimal OCR performance
-  const MAX_WIDTH = 1600;
+  // Detect mobile environment
+  const isMobile = isCapacitor() || /Android|iPhone/i.test(navigator.userAgent);
+
+  // OPTIMIZED: Smaller size for mobile to reduce processing time
+  const MAX_WIDTH = isMobile ? 1200 : 1600;
   let scale = 1;
   if (img.width > MAX_WIDTH) {
     scale = MAX_WIDTH / img.width;
@@ -124,124 +145,69 @@ const preprocessImage = async (
   setPreprocessingStage?.('Scaling image...');
   ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-  // Focus on bottom 35% (MRZ region)
+  // Focus on MRZ region (bottom 35%)
   const roiHeight = Math.floor(canvas.height * 0.35);
   const roiY = canvas.height - roiHeight;
-  const roiImageData = ctx.getImageData(0, roiY, canvas.width, roiHeight);
 
-  // Create new canvas for ROI
+  setPreprocessingStage?.('Extracting MRZ region...');
+  // OPTIMIZATION: Work directly on ROI data
+  const imageData = ctx.getImageData(0, roiY, canvas.width, roiHeight);
+  const data = imageData.data;
+
+  setPreprocessingStage?.('Processing image...');
+  
+  // OPTIMIZED: Single-pass processing
+  let sumBrightness = 0;
+  const pixelCount = data.length / 4;
+
+  // First pass: Grayscale conversion
+  for (let i = 0; i < data.length; i += 4) {
+    const gray = Math.floor(data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114);
+    data[i] = data[i + 1] = data[i + 2] = gray;
+    sumBrightness += gray;
+  }
+
+  // Calculate adaptive threshold (simplified - no expensive histogram)
+  const avgBrightness = sumBrightness / pixelCount;
+  const threshold = Math.floor(avgBrightness * 0.85);
+
+  console.log(`📊 Adaptive threshold: ${threshold} (avg: ${Math.floor(avgBrightness)})`);
+
+  setPreprocessingStage?.('Applying enhancements...');
+  
+  // Second pass: Contrast + Threshold combined
+  const contrastFactor = isMobile ? 1.4 : 1.6; // Less aggressive on mobile
+  const intercept = 128 * (1 - contrastFactor);
+
+  for (let i = 0; i < data.length; i += 4) {
+    // Apply contrast
+    let value = data[i] * contrastFactor + intercept;
+    value = Math.max(0, Math.min(255, value));
+    
+    // Apply binary threshold
+    value = value > threshold ? 255 : 0;
+    
+    data[i] = data[i + 1] = data[i + 2] = value;
+  }
+
+  // Create output canvas with processed ROI
   const roiCanvas = document.createElement('canvas');
   roiCanvas.width = canvas.width;
   roiCanvas.height = roiHeight;
   const roiCtx = roiCanvas.getContext('2d');
   if (!roiCtx) throw new Error('Could not get ROI context');
-  roiCtx.putImageData(roiImageData, 0, 0);
-
-  setPreprocessingStage?.('Converting to grayscale...');
-  // Grayscale conversion
-  const grayImageData = roiCtx.getImageData(0, 0, roiCanvas.width, roiCanvas.height);
-  const data = grayImageData.data;
-  for (let i = 0; i < data.length; i += 4) {
-    const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
-    data[i] = data[i + 1] = data[i + 2] = gray;
-  }
-  roiCtx.putImageData(grayImageData, 0, 0);
-
-  setPreprocessingStage?.('Applying noise reduction...');
-  // Simple noise reduction (3x3 box blur)
-  const blurImageData = roiCtx.getImageData(0, 0, roiCanvas.width, roiCanvas.height);
-  const blurData = blurImageData.data;
-  const width = roiCanvas.width;
-  const height = roiCanvas.height;
-
-  for (let y = 1; y < height - 1; y++) {
-    for (let x = 1; x < width - 1; x++) {
-      let sum = 0;
-      for (let dy = -1; dy <= 1; dy++) {
-        for (let dx = -1; dx <= 1; dx++) {
-          const idx = ((y + dy) * width + (x + dx)) * 4;
-          sum += data[idx];
-        }
-      }
-      const idx = (y * width + x) * 4;
-      const avg = sum / 9;
-      blurData[idx] = blurData[idx + 1] = blurData[idx + 2] = avg;
-    }
-  }
-  roiCtx.putImageData(blurImageData, 0, 0);
-
-  setPreprocessingStage?.('Enhancing contrast...');
-  // Enhanced contrast
-  const contrastFactor = 1.6;
-  const contrastImageData = roiCtx.getImageData(0, 0, roiCanvas.width, roiCanvas.height);
-  const contrastData = contrastImageData.data;
-  const intercept = 128 * (1 - contrastFactor);
   
-  for (let i = 0; i < contrastData.length; i += 4) {
-    contrastData[i] = Math.max(0, Math.min(255, contrastData[i] * contrastFactor + intercept));
-    contrastData[i + 1] = Math.max(0, Math.min(255, contrastData[i + 1] * contrastFactor + intercept));
-    contrastData[i + 2] = Math.max(0, Math.min(255, contrastData[i + 2] * contrastFactor + intercept));
-  }
-  roiCtx.putImageData(contrastImageData, 0, 0);
+  roiCtx.putImageData(imageData, 0, 0);
 
-  setPreprocessingStage?.('Applying adaptive thresholding...');
-  // Adaptive thresholding (Otsu's method approximation)
-  const histImageData = roiCtx.getImageData(0, 0, roiCanvas.width, roiCanvas.height);
-  const histData = histImageData.data;
-  
-  // Calculate histogram
-  const histogram = new Array(256).fill(0);
-  for (let i = 0; i < histData.length; i += 4) {
-    histogram[histData[i]]++;
-  }
-
-  // Calculate optimal threshold
-  const totalPixels = roiCanvas.width * roiCanvas.height;
-  let sum = 0;
-  for (let i = 0; i < 256; i++) {
-    sum += i * histogram[i];
-  }
-
-  let sumB = 0;
-  let wB = 0;
-  let wF = 0;
-  let maxVariance = 0;
-  let threshold = 0;
-
-  for (let t = 0; t < 256; t++) {
-    wB += histogram[t];
-    if (wB === 0) continue;
-    
-    wF = totalPixels - wB;
-    if (wF === 0) break;
-
-    sumB += t * histogram[t];
-    const mB = sumB / wB;
-    const mF = (sum - sumB) / wF;
-    const variance = wB * wF * (mB - mF) * (mB - mF);
-
-    if (variance > maxVariance) {
-      maxVariance = variance;
-      threshold = t;
-    }
-  }
-
-  console.log(`📊 Adaptive threshold calculated: ${threshold}`);
-
-  // Apply threshold
-  for (let i = 0; i < histData.length; i += 4) {
-    const value = histData[i] > threshold ? 255 : 0;
-    histData[i] = histData[i + 1] = histData[i + 2] = value;
-  }
-  roiCtx.putImageData(histImageData, 0, 0);
-
+  const processingTime = performance.now() - perfStart;
+  console.log(`🖼️ Mobile-optimized preprocessing: ${processingTime.toFixed(0)}ms`);
   setPreprocessingStage?.('Preprocessing complete');
-  console.log('🖼️ Advanced preprocessing complete with adaptive thresholding.');
+  
   return roiCanvas.toDataURL('image/png');
 };
 
 // =====================================================
-// MRZ EXTRACTION AND PARSING
+// MRZ EXTRACTION WITH OCR ERROR CORRECTION
 // =====================================================
 const extractMRZLines = (text: string): string[] => {
   const lines = text.split('\n');
@@ -250,12 +216,10 @@ const extractMRZLines = (text: string): string[] => {
   for (const line of lines) {
     let cleanLine = line.trim().toUpperCase();
     
-    // Replace common OCR errors
+    // Replace invalid characters and common OCR errors
     cleanLine = cleanLine
       .replace(/[^A-Z0-9<]/g, '<')
-      .replace(/\s+/g, '')
-      .replace(/O/g, '0') // Common OCR error
-      .replace(/I/g, '1'); // Common OCR error
+      .replace(/\s+/g, '');
 
     // Score each line based on MRZ characteristics
     let score = 0;
@@ -278,7 +242,7 @@ const extractMRZLines = (text: string): string[] => {
   mrzCandidates.sort((a, b) => b.score - a.score);
   const topLines = mrzCandidates.slice(0, 2).map(c => c.line);
 
-  console.log('🔍 MRZ candidate lines with scores:', mrzCandidates.slice(0, 3));
+  console.log('🔍 MRZ candidate lines:', mrzCandidates.slice(0, 3));
   
   return topLines;
 };
@@ -322,7 +286,7 @@ const parseEnhancedMRZ = (mrzLines: string[]): PassportData | null => {
       documentNumber: validateCheckDigit(documentNumber, docNumCheck),
       dateOfBirth: validateCheckDigit(birthDate, birthDateCheck),
       expirationDate: validateCheckDigit(expiryDate, expiryDateCheck),
-      composite: false // Complex composite check
+      composite: false
     };
 
     // Composite check validation
@@ -330,7 +294,7 @@ const parseEnhancedMRZ = (mrzLines: string[]): PassportData | null => {
                          expiryDate + expiryDateCheck + personalNumber + personalNumCheck;
     checksumValid.composite = validateCheckDigit(compositeData, compositeCheck);
 
-    console.log('✅ Checksum validation results:', checksumValid);
+    console.log('✅ Checksum validation:', checksumValid);
 
     // Format dates
     const formattedBirthDate = formatMRZDateEnhanced(birthDate);
@@ -433,25 +397,31 @@ const UnifiedPassportScanner: React.FC<UnifiedPassportScannerProps> = ({
   const [ocrProgress, setOcrProgress] = useState<number>(0);
   const resultRef = useRef<HTMLDivElement>(null);
 
-  // Detect if running in Capacitor/Android
-  const isCapacitor = () => {
-    return !!(window as any).Capacitor;
-  };
-
-  // FIXED: Configure Tesseract with correct CDN paths
+  // FIXED: Configure Tesseract with LOCAL bundled files for mobile
   const configureTesseract = () => {
     if (isCapacitor()) {
-      console.log('⚡ Capacitor environment detected. Using CDN paths for Tesseract.');
+      console.log('⚡ Capacitor: Using LOCAL bundled Tesseract files');
+      // Use local files bundled in the app (NOT CDN)
       return {
-        workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/worker.min.js',
-        langPath: 'https://tessdata.projectnaptha.com/4.0.0_best',
-        corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@5/tesseract-core.wasm.js',
+        workerPath: '/tesseract/worker.min.js',
+        langPath: '/tesseract',
+        corePath: '/tesseract/tesseract-core.wasm.js',
       };
     }
-    return {};
+    console.log('🌐 Web: Using default Tesseract paths');
+    return {}; // Browser uses defaults
   };
 
   const takePicture = async () => {
+    const perfStart = performance.now();
+    const metrics = {
+      capture: 0,
+      preprocessing: 0,
+      ocr: 0,
+      parsing: 0,
+      total: 0
+    };
+
     try {
       setScanning(true);
       setScanResult(null);
@@ -460,7 +430,9 @@ const UnifiedPassportScanner: React.FC<UnifiedPassportScannerProps> = ({
       setPreprocessingStage('');
 
       console.log('📷 Starting unified passport scan...');
+      console.log(`📱 Environment: ${isCapacitor() ? 'Capacitor/Android' : 'Web Browser'}`);
 
+      const captureStart = performance.now();
       const image = await Camera.getPhoto({
         quality: 95,
         allowEditing: false,
@@ -469,19 +441,35 @@ const UnifiedPassportScanner: React.FC<UnifiedPassportScannerProps> = ({
         width: 1600,
         height: 1200
       });
+      metrics.capture = performance.now() - captureStart;
+      console.log(`📸 Camera capture: ${metrics.capture.toFixed(0)}ms`);
 
       if (image.dataUrl) {
         setImagePreview(image.dataUrl);
-        console.log('📷 Image captured, preprocessing...');
 
-        // Advanced preprocessing with progress updates
+        // Preprocessing with performance tracking
+        const preprocessStart = performance.now();
         const preprocessedImage = await preprocessImage(image.dataUrl, setPreprocessingStage);
-        console.log('✅ Preprocessing completed');
+        metrics.preprocessing = performance.now() - preprocessStart;
+        console.log(`🖼️ Preprocessing: ${metrics.preprocessing.toFixed(0)}ms`);
 
         setPreprocessingStage('Running OCR...');
-        console.log('🔍 Starting Tesseract OCR with optimized parameters...');
+        console.log('🔍 Starting Tesseract OCR with mobile-optimized parameters...');
 
-        // FIXED: Use 'eng' with optimized parameters
+        // MOBILE-OPTIMIZED: Different parameters for Capacitor
+        const ocrStart = performance.now();
+        const tesseractParams = isCapacitor() ? {
+          tessedit_pageseg_mode: Tesseract.PSM.SINGLE_BLOCK,
+          tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789<',
+          tessedit_ocr_engine_mode: Tesseract.OEM.LSTM_ONLY, // Faster on mobile
+          preserve_interword_spaces: '0',
+          ...configureTesseract()
+        } : {
+          tessedit_pageseg_mode: Tesseract.PSM.SINGLE_BLOCK,
+          tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789<',
+          ...configureTesseract()
+        };
+
         const result = await Tesseract.recognize(preprocessedImage, 'eng', {
           logger: (m: any) => {
             if (m.status === 'recognizing text') {
@@ -490,19 +478,18 @@ const UnifiedPassportScanner: React.FC<UnifiedPassportScannerProps> = ({
               console.log(`OCR Progress: ${progress}%`);
             }
           },
-          tessedit_pageseg_mode: Tesseract.PSM.SINGLE_BLOCK,
-          tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789<',
-          ...configureTesseract()
+          ...tesseractParams
         });
 
-        console.log('✅ Tesseract OCR completed');
+        metrics.ocr = performance.now() - ocrStart;
+        console.log(`🔍 OCR completed: ${metrics.ocr.toFixed(0)}ms`);
 
         const extractedText = result.data.text;
         const confidence = result.data.confidence / 100;
-        console.log(`🔍 Extracted ${extractedText.length} characters (Confidence: ${confidence.toFixed(2)})`);
-        console.log('Raw text:', extractedText);
+        console.log(`📊 Extracted ${extractedText.length} chars (Confidence: ${(confidence * 100).toFixed(1)}%)`);
 
-        // Extract MRZ lines
+        // Parsing with performance tracking
+        const parseStart = performance.now();
         const mrzLines = extractMRZLines(extractedText);
         console.log('🔍 Detected MRZ lines:', mrzLines);
 
@@ -510,13 +497,20 @@ const UnifiedPassportScanner: React.FC<UnifiedPassportScannerProps> = ({
           const passportData = parseEnhancedMRZ(mrzLines);
 
           if (passportData && passportData.surname !== 'UNKNOWN' && passportData.documentNumber !== 'UNKNOWN') {
+            metrics.parsing = performance.now() - parseStart;
+            metrics.total = performance.now() - perfStart;
+
+            console.log(`📝 Parsing: ${metrics.parsing.toFixed(0)}ms`);
+            console.log(`⏱️ Total scan time: ${metrics.total.toFixed(0)}ms`);
+
             const scanResult: ScanResult = {
               success: true,
               data: passportData,
               confidence: confidence,
               timestamp: Date.now(),
               imageData: image.dataUrl,
-              ocrMethod: 'Advanced Tesseract.js OCR with Checksums'
+              ocrMethod: 'Mobile-Optimized Tesseract.js OCR',
+              performanceMetrics: metrics
             };
 
             setScanResult(scanResult);
@@ -534,13 +528,16 @@ const UnifiedPassportScanner: React.FC<UnifiedPassportScannerProps> = ({
             throw new Error('Failed to parse valid passport data from MRZ');
           }
         } else {
-          throw new Error('No valid MRZ detected in image. Please ensure MRZ lines are clearly visible.');
+          throw new Error('No valid MRZ detected. Ensure bottom two lines are clearly visible.');
         }
       }
 
       setScanning(false);
     } catch (error) {
+      metrics.total = performance.now() - perfStart;
       console.error('❌ Unified scan error:', error);
+      console.error('⏱️ Failed after:', metrics.total.toFixed(0), 'ms');
+      
       setError(error instanceof Error ? error.message : 'Scan failed');
 
       const failureResult: ScanResult = {
@@ -560,7 +557,8 @@ const UnifiedPassportScanner: React.FC<UnifiedPassportScannerProps> = ({
         confidence: 0,
         timestamp: Date.now(),
         imageData: imagePreview || undefined,
-        ocrMethod: 'Advanced OCR - Failed'
+        ocrMethod: 'Mobile-Optimized OCR - Failed',
+        performanceMetrics: metrics
       };
 
       setScanResult(failureResult);
@@ -599,13 +597,15 @@ const UnifiedPassportScanner: React.FC<UnifiedPassportScannerProps> = ({
                   Professional Passport Scanner
                 </CardTitle>
                 <CardDescription>
-                  Advanced OCR • Checksum Validation • Adaptive Processing
+                  Mobile-Optimized OCR • Checksum Validation • Local Processing
                 </CardDescription>
               </div>
-              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                <CheckCircle className="w-3 h-3 mr-1" />
-                Production Ready
-              </Badge>
+              <div className="flex gap-2">
+                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                  <CheckCircle className="w-3 h-3 mr-1" />
+                  {isCapacitor() ? 'Mobile' : 'Web'}
+                </Badge>
+              </div>
             </div>
           </CardHeader>
         </Card>
@@ -615,7 +615,7 @@ const UnifiedPassportScanner: React.FC<UnifiedPassportScannerProps> = ({
           <CardHeader>
             <CardTitle>Document Scanner</CardTitle>
             <CardDescription>
-              AI-powered MRZ extraction with enhanced security validation
+              AI-powered MRZ extraction with enhanced mobile performance
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -628,7 +628,7 @@ const UnifiedPassportScanner: React.FC<UnifiedPassportScannerProps> = ({
                   className="max-w-full max-h-full object-contain rounded-lg"
                 />
               ) : scanning ? (
-                <div className="text-center text-white">
+                <div className="text-center text-white p-4">
                   <CameraIcon className="w-16 h-16 mx-auto mb-4 animate-pulse" />
                   <p className="text-lg font-medium">{preprocessingStage || 'Processing...'}</p>
                   {ocrProgress > 0 && (
@@ -707,10 +707,15 @@ const UnifiedPassportScanner: React.FC<UnifiedPassportScannerProps> = ({
                       {scanResult.success ? 'Scan Successful!' : 'Scan Failed'}
                     </CardTitle>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap">
                     <Badge variant="outline">
                       Confidence: {(scanResult.confidence * 100).toFixed(1)}%
                     </Badge>
+                    {scanResult.performanceMetrics && (
+                      <Badge variant="secondary">
+                        {scanResult.performanceMetrics.total.toFixed(0)}ms
+                      </Badge>
+                    )}
                     {scanResult.success && scanResult.data.checksumValid && (
                       <Badge 
                         variant={hasValidChecksums(scanResult.data) ? "default" : "destructive"}
@@ -736,31 +741,54 @@ const UnifiedPassportScanner: React.FC<UnifiedPassportScannerProps> = ({
               <CardContent className="space-y-4">
                 {scanResult.success && scanResult.data.surname !== 'SCAN_FAILED' && (
                   <>
-                    {/* Profile Section */}
-                    {(() => {
-                      const isValidChecksum = hasValidChecksums(scanResult.data);
-                      return (
-                        <>
-                          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-6 rounded-lg">
-                            <div className="flex items-center gap-4">
-                              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-                                <User className="w-8 h-8 text-primary" />
-                              </div>
-                              <div>
-                                <h3 className="text-2xl font-bold">
-                                  {scanResult.data.givenNames} {scanResult.data.surname}
-                                </h3>
-                                <p className="text-muted-foreground flex items-center gap-1">
-                                  <Globe className="w-4 h-4" />
-                                  {scanResult.data.nationality} National
-                                </p>
-                              </div>
-                            </div>
-                          </div>
+                    {/* Performance Metrics */}
+                    {scanResult.performanceMetrics && (
+                      <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-xs">
+                        <div className="bg-blue-50 p-2 rounded">
+                          <p className="font-semibold">Capture</p>
+                          <p>{scanResult.performanceMetrics.capture.toFixed(0)}ms</p>
+                        </div>
+                        <div className="bg-blue-50 p-2 rounded">
+                          <p className="font-semibold">Preprocess</p>
+                          <p>{scanResult.performanceMetrics.preprocessing.toFixed(0)}ms</p>
+                        </div>
+                        <div className="bg-blue-50 p-2 rounded">
+                          <p className="font-semibold">OCR</p>
+                          <p>{scanResult.performanceMetrics.ocr.toFixed(0)}ms</p>
+                        </div>
+                        <div className="bg-blue-50 p-2 rounded">
+                          <p className="font-semibold">Parsing</p>
+                          <p>{scanResult.performanceMetrics.parsing.toFixed(0)}ms</p>
+                        </div>
+                        <div className="bg-green-50 p-2 rounded">
+                          <p className="font-semibold">Total</p>
+                          <p className="font-bold">{scanResult.performanceMetrics.total.toFixed(0)}ms</p>
+                        </div>
+                      </div>
+                    )}
 
-                          {/* Checksum Status */}
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                            {Object.entries(scanResult.data.checksumValid || {}).map(([key, valid]) => (
+                    {/* Profile Section */}
+                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-6 rounded-lg">
+                      <div className="flex items-center gap-4">
+                        <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                          <User className="w-8 h-8 text-primary" />
+                        </div>
+                        <div>
+                          <h3 className="text-2xl font-bold">
+                            {scanResult.data.givenNames} {scanResult.data.surname}
+                          </h3>
+                          <p className="text-muted-foreground flex items-center gap-1">
+                            <Globe className="w-4 h-4" />
+                            {scanResult.data.nationality} National
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Checksum Status */}
+                    {scanResult.data.checksumValid && (
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                        {Object.entries(scanResult.data.checksumValid).map(([key, valid]) => (
                           <div 
                             key={key}
                             className={`p-2 rounded-lg border ${valid ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}
@@ -768,17 +796,18 @@ const UnifiedPassportScanner: React.FC<UnifiedPassportScannerProps> = ({
                             <p className="text-xs font-medium text-center">
                               {key.replace(/([A-Z])/g, ' $1').trim()}
                             </p>
-                            <p className="text-center mt-1">
+                            <p className="text-center mt-1 text-lg">
                               {valid ? '✓' : '✗'}
                             </p>
                           </div>
                         ))}
-                          </div>
+                      </div>
+                    )}
 
-                          {/* Document Details Grid */}
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                              <div className="flex items-center gap-2 text-muted-foreground">
+                    {/* Document Details Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-muted-foreground">
                           <CreditCard className="w-4 h-4" />
                           <span className="text-sm">Document Number</span>
                         </div>
@@ -786,8 +815,8 @@ const UnifiedPassportScanner: React.FC<UnifiedPassportScannerProps> = ({
                       </div>
 
                       <div className="space-y-2">
-                              <div className="flex items-center gap-2 text-muted-foreground">
-                                <Globe className="w-4 h-4" />
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <Globe className="w-4 h-4" />
                           <span className="text-sm">Nationality</span>
                         </div>
                         <p className="text-lg font-semibold">{scanResult.data.nationality}</p>
@@ -795,8 +824,8 @@ const UnifiedPassportScanner: React.FC<UnifiedPassportScannerProps> = ({
 
                       <div className="space-y-2">
                         <div className="flex items-center gap-2 text-muted-foreground">
-                                <Calendar className="w-4 h-4" />
-                                <span className="text-sm">Date of Birth</span>
+                          <Calendar className="w-4 h-4" />
+                          <span className="text-sm">Date of Birth</span>
                         </div>
                         <p className="text-lg font-semibold">{scanResult.data.dateOfBirth}</p>
                       </div>
@@ -804,8 +833,8 @@ const UnifiedPassportScanner: React.FC<UnifiedPassportScannerProps> = ({
                       <div className="space-y-2">
                         <div className="flex items-center gap-2 text-muted-foreground">
                           <Calendar className="w-4 h-4" />
-                                <span className="text-sm">Expiration Date</span>
-                              </div>
+                          <span className="text-sm">Expiration Date</span>
+                        </div>
                         <p className="text-lg font-semibold">{scanResult.data.expirationDate}</p>
                       </div>
                     </div>
@@ -829,20 +858,17 @@ const UnifiedPassportScanner: React.FC<UnifiedPassportScannerProps> = ({
                       )}
                     </div>
 
-                          {/* Action Buttons */}
-                          <div className="flex gap-2">
-                            <Button variant="outline" className="flex-1" onClick={resetScanner}>
-                              <RotateCcw className="w-4 h-4 mr-2" />
-                              Scan Again
-                            </Button>
-                            <Button className="flex-1">
-                              <CheckCircle className="w-4 h-4 mr-2" />
-                              Confirm & Continue
-                            </Button>
-                          </div>
-                        </>
-                      );
-                    })()}
+                    {/* Action Buttons */}
+                    <div className="flex gap-2">
+                      <Button variant="outline" className="flex-1" onClick={resetScanner}>
+                        <RotateCcw className="w-4 h-4 mr-2" />
+                        Scan Again
+                      </Button>
+                      <Button className="flex-1">
+                        <CheckCircle className="w-4 h-4 mr-2" />
+                        Confirm & Continue
+                      </Button>
+                    </div>
                   </>
                 )}
 

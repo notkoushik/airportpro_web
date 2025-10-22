@@ -10,10 +10,13 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
-  // CRITICAL: Optimize for Capacitor/Android
   build: {
     target: 'esnext',
     minify: 'esbuild',
+    commonjsOptions: {
+      include: [/node_modules/],
+      transformMixedEsModules: true,
+    },
     rollupOptions: {
       output: {
         manualChunks: {
@@ -23,12 +26,20 @@ export default defineConfig({
     }
   },
   optimizeDeps: {
-    include: ['tesseract.js'],
-    exclude: []
+    include: ['tesseract.js', 'react', 'react-dom', 'framer-motion'],
+    exclude: [],
+    // CRITICAL: Force pre-bundling of framer-motion
+    esbuildOptions: {
+      target: 'esnext'
+    }
   },
-  // Handle WASM files properly
-  assetsInclude: ['**/*.wasm', '**/*.traineddata'],
+  assetsInclude: ['**/*.wasm', '**/*.traineddata', '**/*.gz', '**/*.js'],
+  publicDir: 'public',
   worker: {
     format: 'es'
+  },
+  // CRITICAL: Handle React exports properly
+  ssr: {
+    noExternal: ['framer-motion']
   }
 })

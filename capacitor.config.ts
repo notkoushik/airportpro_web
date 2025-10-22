@@ -1,4 +1,4 @@
-import type { CapacitorConfig } from '@capacitor/cli';
+import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.airportpro.app',
@@ -6,15 +6,17 @@ const config: CapacitorConfig = {
   webDir: 'dist',
   server: {
     androidScheme: 'https',
-    // Allow CORS for Tesseract CDN
     allowNavigation: [
       'https://cdn.jsdelivr.net',
       'https://tessdata.projectnaptha.com'
-    ]
+    ],
+    cleartext: true
   },
   android: {
     allowMixedContent: true,
-    webContentsDebuggingEnabled: true // Enable for debugging
+    // REMOVED: hardwareAccelerated (not a valid Capacitor option)
+    // Use AndroidManifest.xml for this setting instead
+    loggingBehavior: 'debug'
   },
   plugins: {
     Camera: {
