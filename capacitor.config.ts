@@ -1,12 +1,20 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  // ✅ CRITICAL: Match app build.gradle applicationId
   appId: 'com.airportpro.app',
   appName: 'AirportPro',
   webDir: 'dist',
   server: {
-    androidScheme: 'https'
+    androidScheme: 'https',
+    // Allow CORS for Tesseract CDN
+    allowNavigation: [
+      'https://cdn.jsdelivr.net',
+      'https://tessdata.projectnaptha.com'
+    ]
+  },
+  android: {
+    allowMixedContent: true,
+    webContentsDebuggingEnabled: true // Enable for debugging
   },
   plugins: {
     Camera: {
