@@ -15,20 +15,27 @@ export default defineConfig({
     target: 'esnext',
     minify: 'esbuild',
     commonjsOptions: {
+      // This helps Vite handle modules that contain both CJS and ESM syntax.
       transformMixedEsModules: true,
     },
     rollupOptions: {
       output: {
         manualChunks: {
           'tesseract-vendor': ['tesseract.js'],
-          'react-vendor': ['react', 'react-dom'],
-          'motion-vendor': ['framer-motion']
+          // 'motion-vendor': ['framer-motion'] // framer-motion is no longer used
         }
       }
     }
   },
   optimizeDeps: {
-    include: ['tesseract.js'],
+    // Pre-bundle these CJS dependencies into ESM for consistency during dev and build.
+    // This is the key to solving the "is not exported by" errors.
+    include: [
+      'tesseract.js', 
+      'react', 
+      'react-dom', 
+      'react/jsx-runtime'
+    ],
     exclude: [],
     esbuildOptions: {
       target: 'esnext'

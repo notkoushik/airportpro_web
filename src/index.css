@@ -17,7 +17,7 @@
 /* FKGroteskNeue Font */
 @font-face {
   font-family: 'FKGroteskNeue';
-  src: url('https://r2cdn.perplexity.ai/fonts/FKGroteskNeue.woff2') format('woff2');
+  src: url('/fonts/FKGroteskNeue.woff2') format('woff2'); /* CRITICAL: Host this font locally in your /public/fonts directory */
   font-display: swap;
 }
 
@@ -60,6 +60,9 @@
   --color-red-400-rgb: 255, 84, 89;
   --color-orange-500-rgb: 168, 75, 47;
   --color-orange-400-rgb: 230, 129, 97;
+  --color-success-rgb: 33, 128, 141; /* Added for toast border */
+  --color-warning-rgb: 168, 75, 47; /* Added for toast border */
+  --color-error-rgb: 192, 21, 47; /* Added for toast border */
   --color-gray-400-rgb: 119, 124, 124;
   --color-gray-300-rgb: 167, 169, 169;
   --color-gray-200-rgb: 245, 245, 245;
@@ -205,6 +208,9 @@
     --color-error: var(--color-red-400);
     --color-success: var(--color-teal-300);
     --color-warning: var(--color-orange-400);
+    --color-success-rgb: 50, 184, 198; /* Added for toast border (dark mode) */
+    --color-warning-rgb: 230, 129, 97; /* Added for toast border (dark mode) */
+    --color-error-rgb: 255, 84, 89; /* Added for toast border (dark mode) */
     --color-info: var(--color-gray-300);
     --color-focus-ring: rgba(var(--color-teal-300-rgb), 0.4);
     --color-btn-primary-text: var(--color-slate-900);
@@ -378,6 +384,21 @@
                 var(--background);
   }
 }
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
 
 /* ===== UTILITIES ===== */
 @layer utilities {

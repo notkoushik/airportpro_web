@@ -1,7 +1,7 @@
 import React, { Suspense, lazy } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { ErrorBoundary } from 'react-error-boundary';
-import { AnimatePresence, motion } from 'framer-motion';
+import { Location } from 'react-router-dom'; // Import Location type
 
 // Core Pages (Keep these as regular imports for better UX)
 import Home from './pages/Home';
@@ -66,26 +66,6 @@ const ErrorFallback: React.FC<{ error: Error; resetErrorBoundary: () => void }> 
   </div>
 );
 
-// Page Transition Wrapper
-const PageTransition: React.FC<{ children: React.ReactNode; location: any }> = ({ 
-  children, 
-  location 
-}) => (
-  <motion.div
-    key={location.pathname}
-    initial={{ opacity: 0, y: 20 }}
-    animate={{ opacity: 1, y: 0 }}
-    exit={{ opacity: 0, y: -20 }}
-    transition={{ 
-      duration: 0.3, 
-      ease: 'easeInOut' 
-    }}
-    className="w-full"
-  >
-    {children}
-  </motion.div>
-);
-
 // Route Guard Component (for future authentication)
 const RouteGuard: React.FC<{ children: React.ReactNode; requireAuth?: boolean }> = ({ 
   children, 
@@ -100,10 +80,21 @@ const RouteGuard: React.FC<{ children: React.ReactNode; requireAuth?: boolean }>
   return <>{children}</>;
 };
 
+// Page Transition Wrapper (Simplified, without framer-motion)
+const PageTransition: React.FC<{ children: React.ReactNode; location: Location }> = ({
+  children,
+  location
+}) => (
+  <div key={location.pathname} className="w-full animate-fadeIn">
+    {children}
+  </div>
+);
+
 // Main App Component
 const App: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
+
 
   return (
     <ErrorBoundary
@@ -113,10 +104,7 @@ const App: React.FC = () => {
         window.location.reload();
       }}
     >
-      <div className="App">
-        <AnimatePresence mode="wait">
-          <Routes location={location} key={location.pathname}>
-            
+      <Routes location={location} key={location.pathname}>
             {/* 🏠 CORE ROUTES - Always Available */}
             <Route 
               path="/" 
@@ -276,10 +264,11 @@ const App: React.FC = () => {
             />
             
           </Routes>
-        </AnimatePresence>
-      </div>
+       
+
     </ErrorBoundary>
   );
 };
+
 
 export default App;
