@@ -1,3 +1,5 @@
+// C:/Users/botch/New_app/airportpro-web/android/settings.gradle
+
 pluginManagement {
     repositories {
         gradlePluginPortal()
@@ -7,10 +9,20 @@ pluginManagement {
 }
 
 dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)  // CHANGED from FAIL_ON_PROJECT_REPOS
+    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
     repositories {
         google()
         mavenCentral()
+
+        // This is the key fix: Define what 'jcenter()' should do.
+        // In this case, we are redirecting it to mavenCentral.
+        // This resolves the error for plugins that still call jcenter().
+        jcenter {
+            content {
+                includeGroup "com.bignerdranch.android"
+            }
+        }
+
         // ADD flatDir here to centralize it
         flatDir {
             dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'

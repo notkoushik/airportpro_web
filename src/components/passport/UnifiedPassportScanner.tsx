@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
+import { Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -211,40 +212,64 @@ const preprocessImage = async (
 // =====================================================
 const extractMRZLines = (text: string): string[] => {
   const lines = text.split('\n');
-  const mrzCandidates: Array<{ line: string; score: number }> = [];
+  const mrzCandidates: Array<{ line: string; score: number; index: number }> = [];
 
-  for (const line of lines) {
+  for (let index = 0; index < lines.length; index++) {
+    const line = lines[index];
     let cleanLine = line.trim().toUpperCase();
     
-    // Replace invalid characters and common OCR errors
+    // Basic cleanup - replace invalid chars
     cleanLine = cleanLine
       .replace(/[^A-Z0-9<]/g, '<')
       .replace(/\s+/g, '');
 
-    // Score each line based on MRZ characteristics
+    // Must be close to 44 characters (TD3 format)
+    if (cleanLine.length < 40 || cleanLine.length > 48) continue;
+
+    // Score each line
     let score = 0;
     
-    if (cleanLine.length >= 44 && cleanLine.length <= 45) score += 10;
-    if (cleanLine.includes('<')) score += 5;
-    if (cleanLine.startsWith('P<')) score += 15;
-    if (/^[A-Z0-9<]{44}$/.test(cleanLine)) score += 10;
+    // Length scoring
+    if (cleanLine.length >= 44 && cleanLine.length <= 45) score += 15;
     
-    // Count digits (MRZ second line has many digits)
+    // MRZ characteristics
+    if (cleanLine.includes('<')) score += 5;
+    if (cleanLine.startsWith('P<')) score += 20; // Line 1 indicator
+    
+    // Count digits (line 2 has many)
     const digitCount = (cleanLine.match(/\d/g) || []).length;
-    if (digitCount >= 8) score += 5;
+    if (digitCount >= 12) score += 15; // Line 2 indicator
+    if (digitCount <= 3 && cleanLine.includes('<<')) score += 10; // Line 1 indicator
+    
+    // Validate structure
+    if (/^[A-Z0-9<]{44}$/.test(cleanLine)) score += 10;
 
-    if (score >= 10) {
-      mrzCandidates.push({ line: cleanLine, score });
+    if (score >= 15) {
+      mrzCandidates.push({ line: cleanLine, score, index });
     }
   }
 
-  // Sort by score and take top 2
-  mrzCandidates.sort((a, b) => b.score - a.score);
-  const topLines = mrzCandidates.slice(0, 2).map(c => c.line);
-
-  console.log('🔍 MRZ candidate lines:', mrzCandidates.slice(0, 3));
+  // Sort by index (vertical position in image) first, then score
+  mrzCandidates.sort((a, b) => a.index - b.index);
   
-  return topLines;
+  // Take first two by position (should be sequential)
+  const topTwo = mrzCandidates.slice(0, 2);
+  
+  // Ensure line1 is the one starting with P<
+  const line1Candidate = topTwo.find(c => c.line.startsWith('P<'));
+  const line2Candidate = topTwo.find(c => !c.line.startsWith('P<'));
+  
+  const result = [];
+  if (line1Candidate) result.push(line1Candidate.line);
+  if (line2Candidate) result.push(line2Candidate.line);
+  
+  console.log('🔍 MRZ extraction result:', {
+    found: result.length,
+    line1: result[0]?.substring(0, 20) + '...',
+    line2: result[1]?.substring(0, 20) + '...'
+  });
+  
+  return result;
 };
 
 const parseEnhancedMRZ = (mrzLines: string[]): PassportData | null => {
@@ -864,10 +889,9 @@ const UnifiedPassportScanner: React.FC<UnifiedPassportScannerProps> = ({
                         <RotateCcw className="w-4 h-4 mr-2" />
                         Scan Again
                       </Button>
-                      <Button className="flex-1">
-                        <CheckCircle className="w-4 h-4 mr-2" />
-                        Confirm & Continue
-                      </Button>
+                      <Link to="/scan-boarding-pass" className="flex-1">
+                        <Button className="w-full">Scan Boarding Pass</Button>
+                      </Link>
                     </div>
                   </>
                 )}
