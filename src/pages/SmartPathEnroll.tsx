@@ -1,11 +1,13 @@
 // src/pages/SmartPathEnroll.tsx
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+// UPDATED IMPORT
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Camera, Scan, User, CheckCircle } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import MRZScanLauncher from "@/components/identity/MRZScanLauncher";
+import PassportScanner, { PassportData } from "@/plugins/PassportScanner";
 
 type MRZData = {
   firstName?: string;
@@ -28,6 +30,12 @@ export default function SmartPathEnroll() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // --- ADDED/MODIFIED LINES ---
+  const [passportData, setPassportData] = useState<PassportData | null>(null);
+  const [scanError, setScanError] = useState<string>("");
+  const [isScanning, setIsScanning] = useState(false);
+  // --------------------------
 
   const steps = [
     { id: "intro", title: "Enrollment Instructions", icon: User },
@@ -74,19 +82,69 @@ export default function SmartPathEnroll() {
     }, 1500);
   };
 
+  // --- THIS IS YOUR NEW FUNCTION ---
+  const handleScanPassport = async () => {
+    setIsScanning(true);
+    setScanError("");
+
+    try {
+      const result = await PassportScanner.scanPassport();
+
+      if (result.success && result.data) {
+        setPassportData(result.data);
+        toast({
+          title: "Passport Scanned Successfully!",
+          description: `Welcome, ${result.data.givenNames} ${result.data.surname}`,
+        });
+        handleNext();
+      } else {
+        setScanError(result.error || "Failed to scan passport");
+        toast({
+          title: "Scan Failed",
+          description: result.error || "Please try again",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      // Cast error to get message
+      const e = error as Error;
+      setScanError(`Error: ${e.message}`);
+      toast({
+        title: "Scan Error",
+        description: e.message || "An unknown error occurred.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsScanning(false);
+    }
+  };
+  // -------------------------------
+
+  // This logic is now handled by the new 'details' step, but we keep it
+  // as a fallback for the MRZ-only flow.
   const displayName = (() => {
-    if (!mrzData) return "John Doe";
-    const first = mrzData.firstName || mrzData.givenName || mrzData.givenNames || "";
-    const last = mrzData.lastName || mrzData.surname || "";
-    return `${first} ${last}`.trim() || "John Doe";
+    if (passportData) {
+      return `${passportData.givenNames} ${passportData.surname}`;
+    }
+    if (mrzData) {
+      const first = mrzData.firstName || mrzData.givenName || mrzData.givenNames || "";
+      const last = mrzData.lastName || mrzData.surname || "";
+      return `${first} ${last}`.trim() || "John Doe";
+    }
+    return "John Doe";
   })();
 
-  const passportNumber = mrzData?.documentNumber || mrzData?.docNumber || "123456789";
+  const passportNumber =
+    passportData?.documentNumber ||
+    mrzData?.documentNumber ||
+    mrzData?.docNumber ||
+    "123456789";
 
   const expiry =
-    typeof mrzData?.dateOfExpiry === "string"
+    passportData?.expiryDate ||
+    (typeof mrzData?.dateOfExpiry === "string"
       ? mrzData.dateOfExpiry
-      : mrzData?.dateOfExpiry?.text || mrzData?.expiry || "12/2030";
+      : mrzData?.dateOfExpiry?.text || mrzData?.expiry || "12/2030");
 
   const renderStepContent = () => {
     switch (steps[currentStep].id) {
@@ -184,8 +242,9 @@ export default function SmartPathEnroll() {
                   const data: MRZData | undefined = res?.data;
                   if (data) setMrzData(data);
                   setShowScanner(false);
-                  const detailsIndex = steps.findIndex((s) => s.id === "details");
-                  setCurrentStep(detailsIndex >= 0 ? detailsIndex : currentStep + 1);
+                  // --- MODIFIED: Go to 'position' step next, not 'details' ---
+                  const positionIndex = steps.findIndex((s) => s.id === "position");
+                  setCurrentStep(positionIndex >= 0 ? positionIndex : currentStep + 1);
                 }}
                 onClose={() => setShowScanner(false)}
               />
@@ -207,49 +266,90 @@ export default function SmartPathEnroll() {
               </p>
             </div>
 
-            <Button onClick={handleNext} className="w-full bg-primary hover:bg-primary/90">
-              OK
+            <Button
+              onClick={handleScanPassport}
+              disabled={isScanning}
+              className="w-full bg-primary hover:bg-primary/90"
+            >
+              {isScanning ? "Scanning... Hold Still..." : "OK"}
             </Button>
+
+            {scanError && (
+              <p className="text-center text-sm text-destructive">{scanError}</p>
+            )}
           </div>
         );
 
+      // --- THIS ENTIRE BLOCK IS REPLACED ---
       case "details":
         return (
-          <div className="space-y-6">
-            <div className="text-center space-y-4">
-              <h2 className="text-xl font-semibold">Your Passport Details</h2>
-              <p className="text-muted-foreground">Please confirm that all of the information below is correct.</p>
-            </div>
-
-            <Card>
-              <CardContent className="p-4 space-y-4">
-                <div className="flex items-center gap-4">
-                  <div className="w-16 h-20 bg-muted rounded-lg flex items-center justify-center">
-                    <User className="h-8 w-8 text-muted-foreground" />
+          <Card>
+            <CardHeader>
+              <CardTitle>Your Passport Details</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {passportData ? (
+                <div className="space-y-4">
+                  {/* Optional: Display Photo */}
+                  {passportData.photoBase64 && (
+                     <div className="w-24 h-32 bg-muted rounded-lg flex items-center justify-center mx-auto">
+                        <img
+                          src={`data:image/jpeg;base64,${passportData.photoBase64}`}
+                          alt="Passport"
+                          className="h-full w-full object-cover rounded-lg"
+                        />
+                     </div>
+                  )}
+                  <h3 className="text-lg font-semibold text-center">
+                    {passportData.givenNames} {passportData.surname}
+                  </h3>
+                  <dl className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <dt className="text-muted-foreground">Nationality:</dt>
+                      <dd className="font-medium">{passportData.nationality}</dd>
+                    </div>
+                    <div className="flex justify-between">
+                      <dt className="text-muted-foreground">Passport:</dt>
+                      <dd className="font-medium">{passportData.documentNumber}</dd>
+                    </div>
+                    <div className="flex justify-between">
+                      <dt className="text-muted-foreground">DOB:</dt>
+                      <dd className="font-medium">{passportData.dateOfBirth}</dd>
+                    </div>
+                    <div className="flex justify-between">
+                      <dt className="text-muted-foreground">Expiry:</dt>
+                      <dd className="font-medium">{passportData.expiryDate}</dd>
+                    </div>
+                  </dl>
+                  
+                  <div className="grid grid-cols-2 gap-3 pt-4">
+                     <Button
+                        variant="outline"
+                        onClick={() => setCurrentStep(steps.findIndex((s) => s.id === "position"))}
+                     >
+                        Back
+                     </Button>
+                     <Button onClick={handleNext} className="w-full bg-primary hover:bg-primary/90">
+                        Confirm
+                     </Button>
                   </div>
-                  <div className="space-y-1">
-                    <h3 className="font-medium">{displayName}</h3>
-                    <p className="text-sm text-muted-foreground">{mrzData?.nationality || "USA"}</p>
-                    <p className="text-sm text-muted-foreground">Passport: {passportNumber}</p>
-                    <p className="text-sm text-muted-foreground">Valid until: {expiry}</p>
-                  </div>
+                  
                 </div>
-              </CardContent>
-            </Card>
-
-            <div className="grid grid-cols-2 gap-3">
-              <Button
-                variant="outline"
-                onClick={() => setCurrentStep(steps.findIndex((s) => s.id === "passport"))}
-              >
-                Back
-              </Button>
-              <Button onClick={handleNext} className="bg-primary hover:bg-primary/90">
-                Looks Good
-              </Button>
-            </div>
-          </div>
+              ) : (
+                 <div className="text-center space-y-4">
+                    <p className="text-muted-foreground">No passport data read from the chip.</p>
+                    <Button
+                        variant="outline"
+                        onClick={() => setCurrentStep(steps.findIndex((s) => s.id === "position"))}
+                     >
+                        Try Scan Again
+                     </Button>
+                 </div>
+              )}
+            </CardContent>
+          </Card>
         );
+      // --- END OF REPLACED BLOCK ---
 
       case "selfie":
         return (
@@ -349,9 +449,14 @@ export default function SmartPathEnroll() {
 
       {/* Content */}
       <div className="p-4">
-        <Card>
-          <CardContent className="p-6">{renderStepContent()}</CardContent>
-        </Card>
+        {/* Removed the extra Card/CardContent wrapper from 'details' to avoid double cards */}
+        {steps[currentStep].id === "details" ? (
+          renderStepContent()
+        ) : (
+          <Card>
+            <CardContent className="p-6">{renderStepContent()}</CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );

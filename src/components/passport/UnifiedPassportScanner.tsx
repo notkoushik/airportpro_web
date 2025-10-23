@@ -15,17 +15,17 @@ import Tesseract from 'tesseract.js';
 // TYPE DEFINITIONS
 // =====================================================
 export interface PassportData {
-  documentType: string;
-  countryCode: string;
+  documentType?: string; // Optional for web
+  countryCode?: string; // Optional for web
   surname: string;
   givenNames: string;
   documentNumber: string;
   dateOfBirth: string;
-  expirationDate: string;
-  personalNumber: string;
+  expiryDate: string; // Renamed from expirationDate
+  personalNumber?: string;
   nationality: string;
-  gender?: string;
-  rawMRZ: string;
+  sex?: string; // Renamed from gender
+  rawMRZ?: string; // Optional for web
   checksumValid?: {
     documentNumber: boolean;
     dateOfBirth: boolean;
@@ -396,7 +396,7 @@ const parseEnhancedMRZ = (mrzLines: string[]): PassportData | null => {
     console.log('✅ Checksum validation:', checksumValid);
 
     const formattedBirthDate = formatMRZDateEnhanced(birthDate);
-    const formattedExpiryDate = formatMRZDateEnhanced(expiryDate);
+    const formattedExpiryDate = formatMRZDateEnhanced(expiryDate); // This was correct
     const nationalityName = getEnhancedCountryName(nationality);
 
     const passportData: PassportData = {
@@ -406,10 +406,10 @@ const parseEnhancedMRZ = (mrzLines: string[]): PassportData | null => {
       givenNames,
       documentNumber: documentNumber || 'UNKNOWN',
       dateOfBirth: formattedBirthDate,
-      expirationDate: formattedExpiryDate,
+      expiryDate: formattedExpiryDate,
       personalNumber: personalNumber || '',
       nationality: nationalityName,
-      gender,
+      sex: gender,
       rawMRZ: mrzLines.join('\n'),
       checksumValid
     };

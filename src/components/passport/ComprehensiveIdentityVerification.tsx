@@ -37,12 +37,12 @@ interface PassportData {
   surname: string;
   givenNames: string;
   documentNumber: string;
-  dateOfBirth: string;
-  expirationDate: string;
-  personalNumber: string;
+  dateOfBirth: string; // Correct
+  expiryDate: string; // Renamed from expirationDate
+  personalNumber?: string; // Made optional to match other definitions
   nationality: string;
-  gender?: string;
-  rawMRZ: string;
+  sex?: string; // Renamed from gender
+  rawMRZ?: string; // Made optional to match other definitions
 }
 
 interface BiometricData {
@@ -525,7 +525,7 @@ const ComprehensiveIdentityVerification: React.FC = () => {
                         <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Expiration Date</span>
                       </div>
                       <p className="text-lg font-bold text-gray-900 dark:text-white">
-                        {passportData.expirationDate}
+                        {passportData.expiryDate}
                       </p>
                     </div>
                   </div>

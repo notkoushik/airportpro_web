@@ -67,8 +67,8 @@ export default function EnhancedSmartPathEnroll() {
       if (nfcSupport.available) {
         const nfcResult = await AirportProPlugins.readNFCPassport(
           enrollmentData.passportData.documentNumber,
-          enrollmentData.passportData.birthDate,
-          enrollmentData.passportData.expirationDate
+          enrollmentData.passportData.dateOfBirth,
+          enrollmentData.passportData.expiryDate
         );
         
         if (nfcResult.success) {
@@ -76,7 +76,7 @@ export default function EnhancedSmartPathEnroll() {
             ...prev,
             nfcData: nfcResult.data
           }));
-          
+            
           toast({
             title: "NFC Verification Successful!",
             description: "Passport chip authenticated",
