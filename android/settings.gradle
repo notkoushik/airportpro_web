@@ -12,13 +12,7 @@ dependencyResolutionManagement {
         google()
         mavenCentral()
         
-        jcenter {
-            content {
-                includeGroup "com.bignerdranch.android"
-            }
-        }
-        
-        // CRITICAL: Node.js repository for node-gradle plugin
+        // Node.js repository for node-gradle plugin
         ivy {
             name = "Node.js"
             setUrl("https://nodejs.org/dist/")
