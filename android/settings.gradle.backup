@@ -7,11 +7,11 @@ pluginManagement {
 }
 
 dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)  // CHANGED from FAIL_ON_PROJECT_REPOS
+    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
     repositories {
         google()
         mavenCentral()
-        // ADD flatDir here to centralize it
+        // REMOVED: jcenter() - deprecated and no longer supported
         flatDir {
             dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
         }

@@ -12,13 +12,7 @@ dependencyResolutionManagement {
         google()
         mavenCentral()
         
-        jcenter {
-            content {
-                includeGroup "com.bignerdranch.android"
-            }
-        }
-        
-        // CRITICAL: Node.js repository for node-gradle plugin
+        // Node.js repository for node-gradle plugin
         ivy {
             name = "Node.js"
             setUrl("https://nodejs.org/dist/")
@@ -33,14 +27,15 @@ dependencyResolutionManagement {
             }
         }
         
+        // flatDir for Capacitor plugins
         flatDir {
-            dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
+            dirs("../capacitor-cordova-android-plugins/src/main/libs", "libs")
         }
     }
 }
 
-include ':app'
-include ':capacitor-cordova-android-plugins'
-project(':capacitor-cordova-android-plugins').projectDir = new File('./capacitor-cordova-android-plugins/')
+rootProject.name = "airportpro"
+include(":app")
 
-apply from: 'capacitor.settings.gradle'
+// Capacitor: Load dynamic Cordova plugin configuration
+apply(from = "capacitor.settings.gradle")
