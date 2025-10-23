@@ -1,7 +1,31 @@
 // src/lib/capacitor-plugins.ts
 import { Capacitor } from '@capacitor/core';
 
-// Define plugin interfaces
+// ============ CORRECTED PASSPORT DATA INTERFACE ============
+// This MUST match src/plugins/PassportScanner.ts exactly
+export interface PassportData {
+  documentNumber: string;
+  surname: string;
+  givenNames: string;
+  nationality: string;
+  dateOfBirth: string;      // ✅ FIXED: was "birthDate"
+  sex: string;              // ✅ FIXED: was "gender"
+  expiryDate: string;       // ✅ FIXED: was "expirationDate"
+  personalNumber?: string;
+  issuingState: string;
+  raw: {
+    line1: string;
+    line2: string;
+    line3?: string;
+  };
+  photoBase64?: string;
+  
+  // Optional legacy fields for backward compatibility
+  countryCode?: string;
+  documentType?: string;
+}
+
+// Rest of interfaces remain the same
 export interface LivenessResult {
   isLive: boolean;
   confidence: number;
@@ -11,19 +35,6 @@ export interface LivenessResult {
   faceCount: number;
   details: string;
   timestamp: number;
-}
-
-export interface PassportData {
-  documentType: string;
-  countryCode: string;
-  surname: string;
-  givenNames: string;
-  documentNumber: string;
-  nationality: string;
-  birthDate: string;
-  gender: string;
-  expirationDate: string;
-  personalNumber?: string;
 }
 
 export interface PassportScanResult {
@@ -52,7 +63,6 @@ export const AirportProPlugins = {
   // Liveness Detection
   async checkLiveness(imageBase64: string): Promise<LivenessResult> {
     if (!Capacitor.isNativePlatform()) {
-      // Fallback for web/browser testing
       return {
         isLive: true,
         confidence: 0.85,
@@ -64,7 +74,6 @@ export const AirportProPlugins = {
         timestamp: Date.now()
       };
     }
-
     try {
       const result = await LivenessPlugin.checkLiveness({ imageData: imageBase64 });
       return result as LivenessResult;
@@ -76,24 +85,26 @@ export const AirportProPlugins = {
   // Passport MRZ Scanning
   async scanPassportMRZ(imageBase64: string): Promise<PassportScanResult> {
     if (!Capacitor.isNativePlatform()) {
-      // Mock data for web testing
+      // Mock data for web testing with CORRECT property names
       return {
         success: true,
         data: {
-          documentType: 'P',
-          countryCode: 'USA',
+          documentNumber: '123456789',
           surname: 'DOE',
           givenNames: 'JOHN',
-          documentNumber: '123456789',
           nationality: 'USA',
-          birthDate: '900101',
-          gender: 'M',
-          expirationDate: '301201',
+          dateOfBirth: '01/01/1990',     // ✅ FIXED property name
+          sex: 'M',                       // ✅ FIXED property name
+          expiryDate: '01/12/2030',       // ✅ FIXED property name
+          issuingState: 'USA',
+          raw: {
+            line1: 'P<USADOE<<JOHN<<<<<<<<<<<<<<<<<<<<<<<<<<<<',
+            line2: '1234567890USA9001011M3012011<<<<<<<<<<<<<<06'
+          }
         },
         confidence: 0.95
       };
     }
-
     try {
       const result = await PassportScannerPlugin.scanPassportMRZ({ imageData: imageBase64 });
       return result as PassportScanResult;
@@ -102,8 +113,12 @@ export const AirportProPlugins = {
     }
   },
 
-  // NFC Passport Reading
-  async readNFCPassport(documentNumber: string, dateOfBirth: string, dateOfExpiry: string): Promise<NFCResult> {
+  // NFC Passport Reading - FIXED PARAMETER NAMES
+  async readNFCPassport(
+    documentNumber: string, 
+    dateOfBirth: string,        // ✅ FIXED: was different in calls
+    expiryDate: string          // ✅ FIXED: was "dateOfExpiry" in some calls
+  ): Promise<NFCResult> {
     if (!Capacitor.isNativePlatform()) {
       return {
         success: true,
@@ -111,12 +126,11 @@ export const AirportProPlugins = {
         timestamp: Date.now()
       };
     }
-
     try {
       const result = await NFCPassportReaderPlugin.readNFCPassport({
         documentNumber,
         dateOfBirth,
-        dateOfExpiry
+        dateOfExpiry: expiryDate  // Convert parameter name for native plugin
       });
       return result as NFCResult;
     } catch (error) {
@@ -129,7 +143,6 @@ export const AirportProPlugins = {
     if (!Capacitor.isNativePlatform()) {
       return { supported: false, enabled: false, available: false };
     }
-
     try {
       return await NFCPassportReaderPlugin.checkNFCSupport();
     } catch (error) {
@@ -142,7 +155,6 @@ export const AirportProPlugins = {
     if (!Capacitor.isNativePlatform()) {
       return { success: true, processedImage: imageBase64 };
     }
-
     try {
       return await PassportScannerPlugin.preprocessImage({ imageData: imageBase64 });
     } catch (error) {

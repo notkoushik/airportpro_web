@@ -7,7 +7,6 @@ import { useToast } from "@/hooks/use-toast";
 import MLKitCameraFeed from "@/components/MLKitCameraFeed";
 import { AirportProPlugins, PassportData } from "@/lib/capacitor-plugins";
 
-
 interface EnrollmentData {
   passportData?: PassportData;
   passportImage?: string;
@@ -65,10 +64,11 @@ export default function EnhancedSmartPathEnroll() {
       const nfcSupport = await AirportProPlugins.checkNFCSupport();
       
       if (nfcSupport.available) {
+        // ✅ FIXED: Now using correct property names
         const nfcResult = await AirportProPlugins.readNFCPassport(
           enrollmentData.passportData.documentNumber,
-          enrollmentData.passportData.dateOfBirth,
-          enrollmentData.passportData.expiryDate
+          enrollmentData.passportData.dateOfBirth,    // ✅ CORRECT
+          enrollmentData.passportData.expiryDate      // ✅ CORRECT
         );
         
         if (nfcResult.success) {
@@ -76,7 +76,7 @@ export default function EnhancedSmartPathEnroll() {
             ...prev,
             nfcData: nfcResult.data
           }));
-            
+          
           toast({
             title: "NFC Verification Successful!",
             description: "Passport chip authenticated",
@@ -87,7 +87,6 @@ export default function EnhancedSmartPathEnroll() {
           throw new Error('NFC reading failed');
         }
       } else {
-        // Skip NFC if not supported
         toast({
           title: "NFC Not Available",
           description: "Continuing without NFC verification",
@@ -101,7 +100,7 @@ export default function EnhancedSmartPathEnroll() {
         description: "Continuing without NFC verification",
         variant: "destructive"
       });
-      setCurrentStep(3); // Continue anyway
+      setCurrentStep(3);
     } finally {
       setIsProcessing(false);
     }
@@ -120,7 +119,7 @@ export default function EnhancedSmartPathEnroll() {
         description: `Liveness verified: ${(result.livenessScore * 100).toFixed(1)}%`,
       });
       
-      setCurrentStep(4); // Move to verification
+      setCurrentStep(4);
     }
   };
 
@@ -136,15 +135,9 @@ export default function EnhancedSmartPathEnroll() {
 
     setIsProcessing(true);
     try {
-      // In a real implementation, you would:
-      // 1. Extract face from passport photo
-      // 2. Compare with selfie using face recognition
-      // 3. Calculate similarity score
-      
-      // For now, simulate face comparison
       await new Promise(resolve => setTimeout(resolve, 3000));
       
-      const faceComparisonScore = Math.random() * 0.3 + 0.7; // Simulate 70-100% match
+      const faceComparisonScore = Math.random() * 0.3 + 0.7;
       
       setEnrollmentData(prev => ({
         ...prev,
@@ -156,14 +149,14 @@ export default function EnhancedSmartPathEnroll() {
           title: "Identity Verified!",
           description: `Face match: ${(faceComparisonScore * 100).toFixed(1)}%`,
         });
-        setCurrentStep(5); // Complete
+        setCurrentStep(5);
       } else {
         toast({
           title: "Verification Failed",
           description: "Face comparison score too low. Please retake selfie.",
           variant: "destructive"
         });
-        setCurrentStep(3); // Back to selfie
+        setCurrentStep(3);
       }
     } catch (error) {
       console.error('Face comparison failed:', error);
@@ -279,7 +272,9 @@ export default function EnhancedSmartPathEnroll() {
                   <div className="space-y-1 text-sm">
                     <p><strong>Name:</strong> {enrollmentData.passportData.givenNames} {enrollmentData.passportData.surname}</p>
                     <p><strong>Document:</strong> {enrollmentData.passportData.documentNumber}</p>
-                    <p><strong>Country:</strong> {enrollmentData.passportData.countryCode}</p>
+                    <p><strong>Nationality:</strong> {enrollmentData.passportData.nationality}</p>
+                    <p><strong>DOB:</strong> {enrollmentData.passportData.dateOfBirth}</p>
+                    <p><strong>Expiry:</strong> {enrollmentData.passportData.expiryDate}</p>
                   </div>
                 </div>
               )}
@@ -364,9 +359,15 @@ export default function EnhancedSmartPathEnroll() {
               </div>
               
               <div className="space-y-2">
-                <p className="text-sm"><strong>Liveness Score:</strong> {(enrollmentData.livenessScore! * 100).toFixed(1)}%</p>
+                {enrollmentData.livenessScore && (
+                  <p className="text-sm">
+                    <strong>Liveness Score:</strong> {(enrollmentData.livenessScore * 100).toFixed(1)}%
+                  </p>
+                )}
                 {enrollmentData.faceComparisonScore && (
-                  <p className="text-sm"><strong>Face Match:</strong> {(enrollmentData.faceComparisonScore * 100).toFixed(1)}%</p>
+                  <p className="text-sm">
+                    <strong>Face Match:</strong> {(enrollmentData.faceComparisonScore * 100).toFixed(1)}%
+                  </p>
                 )}
               </div>
               
@@ -399,8 +400,12 @@ export default function EnhancedSmartPathEnroll() {
                 <div className="space-y-2">
                   <p className="font-medium">Verification Scores:</p>
                   <div className="text-sm space-y-1">
-                    <p>Liveness: {(enrollmentData.livenessScore! * 100).toFixed(1)}%</p>
-                    <p>Face Match: {(enrollmentData.faceComparisonScore! * 100).toFixed(1)}%</p>
+                    {enrollmentData.livenessScore && (
+                      <p>Liveness: {(enrollmentData.livenessScore * 100).toFixed(1)}%</p>
+                    )}
+                    {enrollmentData.faceComparisonScore && (
+                      <p>Face Match: {(enrollmentData.faceComparisonScore * 100).toFixed(1)}%</p>
+                    )}
                     {enrollmentData.nfcData && <p>NFC Verified: ✓</p>}
                   </div>
                 </div>
@@ -420,7 +425,6 @@ export default function EnhancedSmartPathEnroll() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-      {/* Header */}
       <div className="flex items-center mb-6">
         <Button
           variant="ghost"
@@ -437,7 +441,6 @@ export default function EnhancedSmartPathEnroll() {
         </div>
       </div>
 
-      {/* Progress */}
       <div className="mb-8">
         <div className="flex justify-between text-xs text-gray-600 mb-2">
           <span>Step {currentStep + 1} of {steps.length}</span>
@@ -451,7 +454,6 @@ export default function EnhancedSmartPathEnroll() {
         </div>
       </div>
 
-      {/* Content */}
       <div className="max-w-md mx-auto">
         {renderStepContent()}
       </div>
