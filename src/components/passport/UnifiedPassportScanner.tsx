@@ -291,8 +291,10 @@ const parseEnhancedMRZ = (mrzLines: string[]): PassportData | null => {
       return null;
     }
 
-  let line1 = mrzLines[0].padEnd(44, '<');
-let line2 = mrzLines[1].padEnd(44, '<');
+       let line1 = mrzLines[0].padEnd(44, '<');
+      let line2 = mrzLines[1].padEnd(44, '<');
+ 
+
 
 
     const documentType = line1.charAt(0) || 'P';

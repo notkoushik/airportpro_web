@@ -247,28 +247,30 @@ const EnhancedLivenessDetector: React.FC<EnhancedLivenessDetectorProps> = ({ onS
         }
         
         // Update detection state
-        const faceConfidence = detection.detection.score;
-        // A better blink detection: check if eye landmarks are close together
-        const leftEye = landmarks.getLeftEye();
-        const rightEye = landmarks.getRightEye();
-        const leftEyeOpenRatio = (faceapi.euclideanDistance([leftEye[1].x, leftEye[1].y], [leftEye[5].x, leftEye[5].y]) + faceapi.euclideanDistance([leftEye[2].x, leftEye[2].y], [leftEye[4].x, leftEye[4].y])) / (2 * faceapi.euclideanDistance([leftEye[0].x, leftEye[0].y], [leftEye[3].x, leftEye[3].y]));
-        const eyesClosed = leftEyeOpenRatio < 0.2;
-        const smiling = expressions.happy > 0.5;
-        
-        // Calculate head pose (simplified)
-        const headPose = landmarks ? {
-          yaw: 0, // Could calculate from landmark positions
-          pitch: 0,
-          roll: 0
-        } : { yaw: 0, pitch: 0, roll: 0 };
-        
-        setCurrentDetections({
-          faces: detections.length,
-          confidence: faceConfidence,
-          eyeState: eyesClosed ? 'closed' : 'open',
-          smiling,
-          headPose
-        });
+        // [Lines 252-276]
+// Update detection state
+const faceConfidence = detection.detection.score;
+// A better blink detection: check if eye landmarks are close together
+const leftEye = landmarks.getLeftEye();
+const rightEye = landmarks.getRightEye();
+const leftEyeOpenRatio = (faceapi.euclideanDistance([leftEye[1].x, leftEye[1].y], [leftEye[5].x, leftEye[5].y]) + faceapi.euclideanDistance([leftEye[2].x, leftEye[2].y], [leftEye[4].x, leftEye[4].y])) / (2 * faceapi.euclideanDistance([leftEye[0].x, leftEye[0].y], [leftEye[3].x, leftEye[3].y]));
+const eyesClosed = leftEyeOpenRatio < 0.2;
+const smiling = expressions.happy > 0.5;
+
+// Calculate head pose (simplified)
+const headPose = landmarks ? {
+  yaw: 0, // Could calculate from landmark positions
+  pitch: 0,
+  roll: 0
+} : { yaw: 0, pitch: 0, roll: 0 };
+
+setCurrentDetections({
+  faces: detections.length,
+  confidence: faceConfidence,
+  eyeState: eyesClosed ? 'closed' : 'open',
+  smiling,
+  headPose
+});
         
         // Draw info overlay
         ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';

@@ -19,7 +19,8 @@ import {
 
 import UnifiedPassportScanner, { ScanResult } from '../passport/UnifiedPassportScanner';
 
-import AdvancedLivenessDetector from '../liveness/EnhancedLivenessDetector'; // 1. Import the component
+import EnhancedLivenessDetector from '../liveness/EnhancedLivenessDetector';
+// 1. Import the component
 
 type VerificationStep = 'welcome' | 'passport' | 'liveness' | 'nfc' | 'complete';
 
@@ -172,7 +173,7 @@ const EnhancedIdentityVerification: React.FC = () => {
 
   const renderLivenessStep = () => (
     // 2. Render the real component and pass the success handler
-    <AdvancedLivenessDetector
+    <EnhancedLivenessDetector
       onScanSuccess={handleLivenessSuccess}
       // You would also add an onFailure handler here for robustness, e.g.:
       // onScanFailure={handleLivenessFailure}
