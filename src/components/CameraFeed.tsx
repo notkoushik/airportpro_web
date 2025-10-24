@@ -1,161 +1,96 @@
+// src/components/CameraFeed.tsx
 import React, { useEffect, useRef, useState } from 'react';
-import * as faceapi from '@vladmandic/face-api';
 
-type Props = {
-  autoStart?: boolean;
-  onReady?: () => void;
-  onFace?: (hasFace: boolean) => void;
-};
+interface CameraFeedProps {
+  onCapture?: (imageData: string) => void;
+  onError?: (error: string) => void;
+}
 
-const MODEL_URL = '/models'; // must exist under <root>/public/models
-
-export default function CameraFeed({ autoStart = true, onReady, onFace }: Props) {
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const rafRef = useRef<number | null>(null);
-  const [modelsLoaded, setModelsLoaded] = useState(false);
+const CameraFeed: React.FC<CameraFeedProps> = ({ onCapture, onError }) => {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
+  const [isReady, setIsReady] = useState(false);
 
-  // Load face-api models once
   useEffect(() => {
     let cancelled = false;
-
-    async function loadModels() {
+    const startCamera = async () => {
       try {
-        await Promise.all([
-          faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-          faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL),
-        ]);
-        if (!cancelled) {
-          setModelsLoaded(true);
-          onReady?.();
-        }
-      } catch (e) {
-        console.error('[CameraFeed] Failed to load models:', e);
-      }
-    }
-
-    loadModels();
-    return () => { cancelled = true; };
-  }, [onReady]);
-
-  // Start camera when models are ready (or when autoStart toggles)
-  useEffect(() => {
-    if (!modelsLoaded || !autoStart) return;
-    let stopped = false;
-
-    async function start() {
-      try {
-        const media = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
-          audio: false,
+        const mediaStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user' },
+          audio: false
         });
-        if (stopped) return;
 
-        setStream(media);
+        if (cancelled) {
+          mediaStream.getTracks().forEach(track => track.stop());
+          return;
+        }
+        
+        setStream(mediaStream);
+        
         if (videoRef.current) {
-          videoRef.current.srcObject = media;
-          await videoRef.current.play().catch(() => {});
-          runLoop(); // start detection loop
+          videoRef.current.srcObject = mediaStream;
+          // ✅ FIXED: Added proper promise handling
+          videoRef.current.play()
+            .then(() => setIsReady(true))
+            .catch((playError) => {
+              console.error('Failed to play video:', playError);
+              onError?.('Failed to start camera');
+            });
         }
-      } catch (e) {
-        console.error('[CameraFeed] getUserMedia failed:', e);
+      } catch (error) {
+        console.error('Camera access failed:', error);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        onError?.(errorMessage);
       }
-    }
-
-    start();
-    return () => { stopped = true; };
-  }, [modelsLoaded, autoStart]);
-
-  // Detection loop
-  const runLoop = () => {
-    cancelLoop(); // defensive: clear any prior loop
-    const loop = async () => {
-      const video = videoRef.current;
-      const canvas = canvasRef.current;
-      if (!video || !canvas) return;
-
-      // Match canvas to video size
-      const { videoWidth, videoHeight } = video;
-      if (videoWidth && videoHeight) {
-        if (canvas.width !== videoWidth) canvas.width = videoWidth;
-        if (canvas.height !== videoHeight) canvas.height = videoHeight;
-      }
-
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-      }
-
-      try {
-        const det = await faceapi
-          .detectSingleFace(
-            video,
-            new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 })
-          )
-          .withFaceLandmarks(true);
-
-        onFace?.(!!det);
-
-        if (det && ctx) {
-          // draw detection box & landmarks
-          const resized = faceapi.resizeResults(det, { width: canvas.width, height: canvas.height });
-          faceapi.draw.drawDetections(canvas, resized);
-          // Draw landmarks if available
-          if (resized.landmarks) {
-            faceapi.draw.drawFaceLandmarks(canvas, resized);
-          }
-        }
-      } catch (e) {
-        // Keep loop alive even if a detection fails once
-      }
-
-      rafRef.current = requestAnimationFrame(loop);
     };
-
-    rafRef.current = requestAnimationFrame(loop);
-  };
-
-  const cancelLoop = () => {
-    if (rafRef.current != null) {
-      cancelAnimationFrame(rafRef.current);
-      rafRef.current = null;
-    }
-  };
-
-  // Cleanup on unmount
-  useEffect(() => {
+    
+    startCamera();
+    
     return () => {
-      cancelLoop();
+      cancelled = true;
       if (stream) {
-        for (const t of stream.getTracks()) t.stop();
+        stream.getTracks().forEach(track => track.stop());
       }
     };
-  }, [stream]);
+  }, [onError]);
+
+  const captureImage = () => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas) return;
+    
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    ctx.drawImage(video, 0, 0);
+    const imageData = canvas.toDataURL('image/jpeg');
+    onCapture?.(imageData);
+  };
 
   return (
-    <div style={{ position: 'relative', width: '100%', maxWidth: 640 }}>
+    <div className="relative">
       <video
         ref={videoRef}
+        autoPlay
         playsInline
         muted
-        style={{ width: '100%', height: 'auto', borderRadius: 12, background: '#000' }}
+        className="w-full rounded-lg"
       />
-      <canvas
-        ref={canvasRef}
-        style={{
-          position: 'absolute',
-          inset: 0,
-          width: '100%',
-          height: '100%',
-          pointerEvents: 'none',
-        }}
-      />
-      {!modelsLoaded && (
-        <div style={{ marginTop: 8, fontSize: 12, opacity: 0.7 }}>
-          Loading face models…
-        </div>
+      <canvas ref={canvasRef} className="hidden" />
+      
+      {isReady && (
+        <button
+          onClick={captureImage}
+          className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-blue-600 text-white px-4 py-2 rounded-full shadow-lg"
+        >
+          Capture
+        </button>
       )}
     </div>
   );
-}
+};
+
+export default CameraFeed;
