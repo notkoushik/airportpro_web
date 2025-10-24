@@ -18,9 +18,7 @@ import {
 } from "lucide-react";
 
 import UnifiedPassportScanner, { ScanResult } from '../passport/UnifiedPassportScanner';
-
-import EnhancedLivenessDetector from '../liveness/EnhancedLivenessDetector';
-// 1. Import the component
+import EnhancedLivenessDetector, { DetectionResult } from '../liveness/EnhancedLivenessDetector'; // Import DetectionResult and the component
 
 type VerificationStep = 'welcome' | 'passport' | 'liveness' | 'nfc' | 'complete';
 
