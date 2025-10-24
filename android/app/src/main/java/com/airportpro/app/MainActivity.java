@@ -1,15 +1,17 @@
 package com.airportpro.app;
 
-import android.os.Bundle;
 import com.getcapacitor.BridgeActivity;
+import android.os.Bundle;
+
+// 1. Import your plugin
+import com.airportpro.app.PassportScannerPlugin; 
 
 public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
-        // ============ PHASE 1: REGISTER PASSPORT SCANNER PLUGIN ============
-        registerPlugin(PassportScannerPlugin.class);
-        
-        // CRITICAL: This MUST come AFTER registerPlugin()
         super.onCreate(savedInstanceState);
+
+        // 2. Register your plugin
+        registerPlugin(PassportScannerPlugin.class); 
     }
 }

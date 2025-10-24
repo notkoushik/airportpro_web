@@ -16,6 +16,7 @@ import {
   Clock,
   Eye
 } from "lucide-react";
+import type { PassportData } from '@/types/passport';
 
 // ✅ FIXED: Import named exports correctly
 import { UnifiedPassportScanner } from '../passport/UnifiedPassportScanner';
@@ -83,14 +84,14 @@ const EnhancedIdentityVerification: React.FC = () => {
 
   const getCurrentStep = () => steps.find(step => step.id === currentStep);
 
-  const handlePassportSuccess = (result: ScanResult) => {
-    setVerificationData(prev => ({ ...prev, passportData: result.data }));
+  const handlePassportSuccess = (data: PassportData) => {
+    setVerificationData(prev => ({ ...prev, passportData: data }));
     setCurrentStep('liveness');
     setProgress(66);
   };
 
-  const handlePassportFailure = (result: ScanResult) => {
-    console.error("Passport scan failed:", result);
+  const handlePassportFailure = (error: string) => {
+    console.error("Passport scan failed:", error);
   };
 
   const handleLivenessSuccess = () => {

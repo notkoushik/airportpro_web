@@ -22,13 +22,13 @@ const More = lazy(() => import('./pages/More'));
 // ✅ FIXED: Import with default export wrapper
 const UnifiedPassportScanner = lazy(() => 
   import('@/components/passport/UnifiedPassportScanner').then(module => ({
-    default: module.UnifiedPassportScanner
+    default: module.default
   }))
 );
 
 const ComprehensiveIdentityVerification = lazy(() => 
   import('@/components/passport/ComprehensiveIdentityVerification').then(module => ({
-    default: module.ComprehensiveIdentityVerification
+    default: module.default
   }))
 );
 
@@ -254,7 +254,7 @@ const App: React.FC = () => {
               <PageTransition pathname={location.pathname}>
                 <UnifiedPassportScanner 
                   onScanSuccess={(result) => {
-                    navigate('/identity-verification', { state: { passportData: result.data } });
+                    navigate('/identity-verification', { state: { passportData: result } });
                   }}
                 />
               </PageTransition>
