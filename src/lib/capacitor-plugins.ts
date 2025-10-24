@@ -78,10 +78,10 @@ export const AirportProPlugins = {
       const result = await LivenessPlugin.checkLiveness({ imageData: imageBase64 });
       return result as LivenessResult;
     } catch (error) {
-      throw new Error(`Liveness check failed: ${error}`);
-    }
+  const errorMsg = error instanceof Error ? error.message : String(error);
+  throw new Error(`Liveness check failed: ${errorMsg}`);
+}
   },
-
   // Passport MRZ Scanning
   async scanPassportMRZ(imageBase64: string): Promise<PassportScanResult> {
     if (!Capacitor.isNativePlatform()) {
@@ -109,8 +109,10 @@ export const AirportProPlugins = {
       const result = await PassportScannerPlugin.scanPassportMRZ({ imageData: imageBase64 });
       return result as PassportScanResult;
     } catch (error) {
-      throw new Error(`Passport scan failed: ${error}`);
-    }
+  const errorMsg = error instanceof Error ? error.message : String(error);
+  throw new Error(`Passport scan failed: ${errorMsg}`);
+}
+
   },
 
   // NFC Passport Reading - FIXED PARAMETER NAMES
@@ -134,8 +136,10 @@ export const AirportProPlugins = {
       });
       return result as NFCResult;
     } catch (error) {
-      throw new Error(`NFC reading failed: ${error}`);
-    }
+  const errorMsg = error instanceof Error ? error.message : String(error);
+  throw new Error(`NFC reading failed: ${errorMsg}`);
+}
+
   },
 
   // NFC Support Check
@@ -146,8 +150,9 @@ export const AirportProPlugins = {
     try {
       return await NFCPassportReaderPlugin.checkNFCSupport();
     } catch (error) {
-      return { supported: false, enabled: false, available: false, error: error.toString() };
-    }
+  const errorMsg = error instanceof Error ? error.message : String(error);
+  return { supported: false, enabled: false, available: false, error: errorMsg };
+}
   },
 
   // Image Preprocessing
@@ -158,7 +163,9 @@ export const AirportProPlugins = {
     try {
       return await PassportScannerPlugin.preprocessImage({ imageData: imageBase64 });
     } catch (error) {
-      throw new Error(`Image preprocessing failed: ${error}`);
-    }
+  const errorMsg = error instanceof Error ? error.message : String(error);
+  throw new Error(`Image preprocessing failed: ${errorMsg}`);
+}
+
   }
 };

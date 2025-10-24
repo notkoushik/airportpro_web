@@ -9,7 +9,7 @@
 
     /* Bundler mode */
     "moduleResolution": "bundler",
-    "allowSyntheticDefaultImports": true, // This line is added
+    "allowSyntheticDefaultImports": true,
     "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
@@ -23,7 +23,10 @@
     "noFallthroughCasesInSwitch": true,
     "paths": {
       "@/*": ["./src/*"]
-    }
+    },
+
+    /* Explicit type libs to avoid "Cannot find type definition file" */
+    "types": ["vite/client", "node", "react", "react-dom"]
   },
   "include": ["src"]
 }

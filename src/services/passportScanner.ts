@@ -1,4 +1,5 @@
-import { LabelRecognizer } from 'dynamsoft-label-recognizer';
+import LabelRecognizer from 'dynamsoft-label-recognizer';
+
 import type { PassportData, MRZData, ScanResult, ScannerConfig } from '../types/passport';
 import { PassportScannerService as MRZParserService } from './PassportScannerService'; // Import the new parser
 

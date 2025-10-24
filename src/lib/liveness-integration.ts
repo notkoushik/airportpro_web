@@ -47,9 +47,12 @@ export class LivenessDetectionService {
 
       return this.currentStream;
     } catch (error) {
-      console.error('Failed to start camera stream:', error);
-      throw new Error(`Camera access failed: ${error.message}`);
-    }
+  if (error instanceof Error) {
+    throw new Error(`Camera access failed: ${error.message}`);
+  }
+  throw new Error(`Camera access failed: ${String(error)}`);
+}
+
   }
 
   /**
@@ -89,9 +92,12 @@ export class LivenessDetectionService {
       
       return result;
     } catch (error) {
-      console.error('Liveness check failed:', error);
-      throw new Error(`Liveness detection failed: ${error.message}`);
-    }
+  if (error instanceof Error) {
+    throw new Error(`Liveness detection failed: ${error.message}`);
+  }
+  throw new Error(`Liveness detection failed: ${String(error)}`);
+}
+
   }
 
   /**
@@ -117,8 +123,13 @@ export class LivenessDetectionService {
           onResult(result);
         }
       } catch (error) {
-        onError(error.message);
-      }
+  if (error instanceof Error) {
+    onError(error.message);
+  } else {
+    onError(String(error));
+  }
+}
+
 
       if (isMonitoring) {
         timeoutId = setTimeout(monitor, intervalMs);
