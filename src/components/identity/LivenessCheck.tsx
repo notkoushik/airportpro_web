@@ -265,7 +265,7 @@ export const LivenessCheck: React.FC<LivenessCheckProps> = ({
         >
           Try Again
         </Button>
-        {result?.isLive && (
+        {result?.isLive && onComplete && (
           <Button 
             onClick={() => onComplete(true, result)}
             className="flex-1 bg-success text-success-foreground hover:bg-success/90"

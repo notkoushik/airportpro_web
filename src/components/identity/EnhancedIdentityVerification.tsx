@@ -17,7 +17,8 @@ import {
   Eye
 } from "lucide-react";
 
-import ProfessionalPassportScanner, { ScanResult } from '../passport/ProfessionalPassportScanner';
+import UnifiedPassportScanner, { ScanResult } from '../passport/UnifiedPassportScanner';
+
 import AdvancedLivenessDetector from '../liveness/EnhancedLivenessDetector'; // 1. Import the component
 
 type VerificationStep = 'welcome' | 'passport' | 'liveness' | 'nfc' | 'complete';
@@ -161,19 +162,20 @@ const EnhancedIdentityVerification: React.FC = () => {
     </div>
   );
 
-  const renderPassportStep = () => (
-    <ProfessionalPassportScanner 
-      onScanSuccess={handlePassportSuccess}
-      onScanFailure={handlePassportFailure}
-    />
-  );
+ const renderPassportStep = () => (
+  <UnifiedPassportScanner
+    onScanSuccess={handlePassportSuccess}
+    onScanFailure={handlePassportFailure}
+  />
+);
+
 
   const renderLivenessStep = () => (
     // 2. Render the real component and pass the success handler
-    <AdvancedLivenessDetector 
-      onLivenessSuccess={handleLivenessSuccess}
-      // You would also add an onFailure handler here for robustness
-      // onLivenessFailure={handleLivenessFailure}
+    <AdvancedLivenessDetector
+      onScanSuccess={handleLivenessSuccess}
+      // You would also add an onFailure handler here for robustness, e.g.:
+      // onScanFailure={handleLivenessFailure}
     />
   );
 

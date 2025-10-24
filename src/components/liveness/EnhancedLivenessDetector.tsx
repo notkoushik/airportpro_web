@@ -50,7 +50,12 @@ interface DetectionResult {
   detectionData: any;
 }
 
-const EnhancedLivenessDetector: React.FC = () => {
+interface EnhancedLivenessDetectorProps {
+  onScanSuccess: (result: DetectionResult) => void;
+  onScanFailure?: (error: Error) => void;
+}
+
+const EnhancedLivenessDetector: React.FC<EnhancedLivenessDetectorProps> = ({ onScanSuccess, onScanFailure }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -214,7 +219,7 @@ const EnhancedLivenessDetector: React.FC = () => {
 
       if (detections.length > 0) {
         const detection = detections[0];
-        const { expressions, landmarks, ageAndGender } = detection;
+        const { expressions, landmarks, age, gender } = detection;
         
         // Draw face bounding box
         const box = detection.detection.box;
@@ -246,7 +251,7 @@ const EnhancedLivenessDetector: React.FC = () => {
         // A better blink detection: check if eye landmarks are close together
         const leftEye = landmarks.getLeftEye();
         const rightEye = landmarks.getRightEye();
-        const leftEyeOpenRatio = (faceapi.euclideanDistance(leftEye[1], leftEye[5]) + faceapi.euclideanDistance(leftEye[2], leftEye[4])) / (2 * faceapi.euclideanDistance(leftEye[0], leftEye[3]));
+        const leftEyeOpenRatio = (faceapi.euclideanDistance([leftEye[1].x, leftEye[1].y], [leftEye[5].x, leftEye[5].y]) + faceapi.euclideanDistance([leftEye[2].x, leftEye[2].y], [leftEye[4].x, leftEye[4].y])) / (2 * faceapi.euclideanDistance([leftEye[0].x, leftEye[0].y], [leftEye[3].x, leftEye[3].y]));
         const eyesClosed = leftEyeOpenRatio < 0.2;
         const smiling = expressions.happy > 0.5;
         
@@ -276,8 +281,8 @@ const EnhancedLivenessDetector: React.FC = () => {
         ctx.fillText('🔴 LIVE ANALYSIS', 20, 30);
         ctx.font = '12px Arial';
         ctx.fillText(`Confidence: ${(faceConfidence * 100).toFixed(0)}%`, 20, 50);
-        ctx.fillText(`Age: ~${Math.round(ageAndGender.age)}`, 20, 65);
-        ctx.fillText(`Gender: ${ageAndGender.gender}`, 20, 80);
+        ctx.fillText(`Age: ~${Math.round(age)}`, 20, 65);
+        ctx.fillText(`Gender: ${gender}`, 20, 80);
         ctx.fillText(`Expression: ${expressions.happy > 0.5 ? 'Happy' : 'Neutral'}`, 20, 95);
 
       } else {
@@ -482,11 +487,13 @@ const EnhancedLivenessDetector: React.FC = () => {
       };
       
       setLivenessResult(result);
+      onScanSuccess(result);
       
       console.log('✅ Liveness test completed:', result);
       
     } catch (error) {
       console.error('❌ Liveness test failed:', error);
+      onScanFailure?.(error as Error);
       setLivenessResult({
         isLive: false,
         confidence: 0,
