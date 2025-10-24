@@ -54,9 +54,9 @@ export interface NFCResult {
 }
 
 // Plugin registrations
-const LivenessPlugin = Capacitor.registerPlugin('LivenessPlugin');
-const PassportScannerPlugin = Capacitor.registerPlugin('PassportScannerPlugin');
-const NFCPassportReaderPlugin = Capacitor.registerPlugin('NFCPassportReaderPlugin');
+const LivenessPlugin = Capacitor.registerPlugin<any>('LivenessPlugin');
+const PassportScannerPlugin = Capacitor.registerPlugin<any>('PassportScannerPlugin');
+const NFCPassportReaderPlugin = Capacitor.registerPlugin<any>('NFCPassportReaderPlugin');
 
 // Exported functions for React components
 export const AirportProPlugins = {

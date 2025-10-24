@@ -1,12 +1,15 @@
-import LabelRecognizer from 'dynamsoft-label-recognizer';
-
+// ✅ FIXED: Import only the TYPE for TypeScript
+import type { LabelRecognizer as LabelRecognizerType } from 'dynamsoft-label-recognizer';
 import type { PassportData, MRZData, ScanResult, ScannerConfig } from '../types/passport';
-import { PassportScannerService as MRZParserService } from './PassportScannerService'; // Import the new parser
+import { PassportScannerService as MRZParserService } from './PassportScannerService';
 
 export class PassportScannerService {
-  private recognizer: LabelRecognizer | null = null;
+  private recognizer: LabelRecognizerType | null = null;
   private config: ScannerConfig;
   private isInitializing = false;
+  
+  // Store the class reference
+  private LabelRecognizerClass: any = null;
 
   constructor(config: ScannerConfig = {}) {
     this.config = {
@@ -23,16 +26,24 @@ export class PassportScannerService {
     try {
       console.log('Initializing Dynamsoft Label Recognizer...');
       
-      if (this.config.licenseKey) {
-        LabelRecognizer.license = this.config.licenseKey;
+      // ✅ FIXED: Dynamic import at runtime
+      if (!this.LabelRecognizerClass) {
+        const DLR = await import('dynamsoft-label-recognizer');
+        this.LabelRecognizerClass = DLR.LabelRecognizer || DLR.default;
       }
-      await LabelRecognizer.loadWasm();
-      this.recognizer = await LabelRecognizer.createInstance();
+      
+      if (this.config.licenseKey) {
+        this.LabelRecognizerClass.license = this.config.licenseKey;
+      }
+      
+      await this.LabelRecognizerClass.loadWasm();
+      this.recognizer = await this.LabelRecognizerClass.createInstance();
       
       console.log('Passport scanner initialized successfully');
     } catch (error) {
       console.error('Failed to initialize passport scanner:', error);
-      throw new Error(`Failed to initialize passport scanner: ${error}`);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to initialize passport scanner: ${errorMsg}`);
     } finally {
       this.isInitializing = false;
     }
@@ -42,7 +53,7 @@ export class PassportScannerService {
     if (!this.recognizer) {
       throw new Error('Scanner not initialized');
     }
-
+    
     try {
       const results = await this.recognizer.recognize(imageElement);
       
@@ -61,29 +72,27 @@ export class PassportScannerService {
         timestamp: new Date()
       };
     } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
       return {
         success: false,
-        error: `Scanning error: ${error}`,
+        error: `Scanning error: ${errorMsg}`,
         timestamp: new Date()
       };
     }
   }
 
-  // 🔧 REPLACED: Using the new, more robust PassportScannerService for parsing
   private parseMRZLines(results: any[]): MRZData {
     const sortedResults = results.sort((a, b) => a.location.y - b.location.y);
-    const line1 = sortedResults[0].text;
-    const line2 = sortedResults[1].text;
+    const line1 = sortedResults.text;
+    const line2 = sortedResults.text;
     const rawMRZ = `${line1}\n${line2}`;
     
     console.log('📄 Raw OCR result for parsing:', rawMRZ);
     
-    // Use the static method from the new service for parsing
     const parsedResult = MRZParserService.parsePassportMRZ(rawMRZ);
     
     if (!parsedResult) {
       console.error('❌ New parser failed to extract data.');
-      // Return a default error structure
       return { line1: '', line2: '', confidence: 0, parsed: {} as PassportData };
     }
     
