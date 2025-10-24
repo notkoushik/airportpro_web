@@ -66,7 +66,7 @@ export default function EnhancedSmartPathEnroll() {
       if (nfcSupport.available) {
         // ✅ FIXED: Now using correct property names
         const nfcResult = await AirportProPlugins.readNFCPassport(
-          enrollmentData.passportData.documentNumber,
+          enrollmentData.passportData.passportNumber,
           enrollmentData.passportData.dateOfBirth,    // ✅ CORRECT
           enrollmentData.passportData.expiryDate      // ✅ CORRECT
         );
@@ -271,7 +271,7 @@ export default function EnhancedSmartPathEnroll() {
                   <h3 className="font-medium mb-2">Passport Data Found:</h3>
                   <div className="space-y-1 text-sm">
                     <p><strong>Name:</strong> {enrollmentData.passportData.givenNames} {enrollmentData.passportData.surname}</p>
-                    <p><strong>Document:</strong> {enrollmentData.passportData.documentNumber}</p>
+                    <p><strong>Document:</strong> {enrollmentData.passportData.passportNumber}</p>
                     <p><strong>Nationality:</strong> {enrollmentData.passportData.nationality}</p>
                     <p><strong>DOB:</strong> {enrollmentData.passportData.dateOfBirth}</p>
                     <p><strong>Expiry:</strong> {enrollmentData.passportData.expiryDate}</p>

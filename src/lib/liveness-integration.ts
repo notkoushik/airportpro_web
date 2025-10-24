@@ -2,7 +2,8 @@
 // Integration layer for liveness detection
 
 import { Capacitor } from '@capacitor/core';
-import { LivenessPluginNative } from './capacitor-plugins';
+// ✅ FIXED: Import the correct export
+import { AirportProPlugins } from './capacitor-plugins';
 
 export interface LivenessResult {
   success: boolean;
@@ -14,17 +15,25 @@ export interface LivenessResult {
 /**
  * Performs liveness detection using native plugin or web fallback
  */
-export async function performLivenessCheck(): Promise<LivenessResult> {
+export async function performLivenessCheck(imageData?: string): Promise<LivenessResult> {
   const platform = Capacitor.getPlatform();
   
   try {
     if (platform === 'android' || platform === 'ios') {
-      // Use native liveness detection
-      const result = await LivenessPluginNative.startLiveness();
+      if (!imageData) {
+        return {
+          success: false,
+          error: 'Image data required for native liveness check',
+          method: 'native'
+        };
+      }
+
+      // ✅ FIXED: Use AirportProPlugins instead of LivenessPluginNative
+      const result = await AirportProPlugins.checkLiveness(imageData);
       
       return {
-        success: result.success,
-        score: result.score,
+        success: result.isLive,
+        score: result.confidence,
         method: 'native'
       };
     } else {

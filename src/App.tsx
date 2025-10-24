@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import Home from './pages/Home';
 import NotFound from './pages/NotFound';
 import UltimateLivenessDetector from './components/liveness/UltimateLivenessDetector';
+
 import { defineCustomElements } from '@ionic/pwa-elements/loader';
 defineCustomElements(window);
 
@@ -18,26 +19,33 @@ const WaitTimes = lazy(() => import('./pages/WaitTimes'));
 const Map = lazy(() => import('./pages/Map'));
 const More = lazy(() => import('./pages/More'));
 
-// Lazy load scanning and identity components (heavy components)
-const UnifiedPassportScanner = lazy(() => import('@/components/passport/UnifiedPassportScanner'));
-const ComprehensiveIdentityVerification = lazy(() => import('@/components/passport/ComprehensiveIdentityVerification'));
+// ✅ FIXED: Import with default export wrapper
+const UnifiedPassportScanner = lazy(() => 
+  import('@/components/passport/UnifiedPassportScanner').then(module => ({
+    default: module.UnifiedPassportScanner
+  }))
+);
 
-// ============================================================================
+const ComprehensiveIdentityVerification = lazy(() => 
+  import('@/components/passport/ComprehensiveIdentityVerification').then(module => ({
+    default: module.ComprehensiveIdentityVerification
+  }))
+);
+
+// ==============================================================================
 // LOADING COMPONENT
-// ============================================================================
+// ==============================================================================
 const LoadingSpinner: React.FC = () => (
-  <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50">
-    <div className="flex flex-col items-center space-y-4">
-      <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-      <p className="text-lg font-medium text-gray-700">Loading...</p>
-      <p className="text-sm text-gray-500">Initializing professional components</p>
-    </div>
+  <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+    <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600"></div>
+    <p className="mt-4 text-slate-600 font-medium">Loading...</p>
+    <p className="mt-2 text-sm text-slate-500">Initializing professional components</p>
   </div>
 );
 
-// ============================================================================
+// ==============================================================================
 // ERROR FALLBACK COMPONENT (WITH PROPER TYPING)
-// ============================================================================
+// ==============================================================================
 interface ErrorFallbackProps {
   error: Error;
   resetErrorBoundary: () => void;
@@ -47,25 +55,25 @@ const ErrorFallback: React.FC<ErrorFallbackProps> = ({
   error, 
   resetErrorBoundary 
 }) => (
-  <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
-    <Card className="w-full max-w-md">
-      <CardContent className="pt-6">
-        <div className="flex flex-col items-center text-center space-y-4">
-          <div className="text-6xl">⚠️</div>
-          <h2 className="text-2xl font-bold">Something went wrong</h2>
-          <p className="text-muted-foreground">
-            {error?.message || 'An unexpected error occurred'}
-          </p>
-          <Button onClick={resetErrorBoundary}>Try again</Button>
-        </div>
+  <div className="flex items-center justify-center min-h-screen bg-slate-50">
+    <Card className="w-full max-w-md mx-4">
+      <CardContent className="pt-6 text-center">
+        <div className="text-6xl mb-4">⚠️</div>
+        <h2 className="text-2xl font-bold text-slate-800 mb-2">Something went wrong</h2>
+        <p className="text-slate-600 mb-6">
+          {error?.message || 'An unexpected error occurred'}
+        </p>
+        <Button onClick={resetErrorBoundary} className="w-full">
+          Try Again
+        </Button>
       </CardContent>
     </Card>
   </div>
 );
 
-// ============================================================================
+// ==============================================================================
 // ROUTE GUARD COMPONENT (FOR FUTURE AUTHENTICATION)
-// ============================================================================
+// ==============================================================================
 interface RouteGuardProps {
   children: React.ReactNode;
   requireAuth?: boolean;
@@ -76,17 +84,12 @@ const RouteGuard: React.FC<RouteGuardProps> = ({
   requireAuth = false 
 }) => {
   // For future: Add authentication logic here
-  // const isAuthenticated = useAuth();
-  // if (requireAuth && !isAuthenticated) {
-  //   return <Navigate to="/login" replace />;
-  // }
-  
   return <>{children}</>;
 };
 
-// ============================================================================
-// PAGE TRANSITION WRAPPER (SIMPLIFIED, WITHOUT FRAMER-MOTION)
-// ============================================================================
+// ==============================================================================
+// PAGE TRANSITION WRAPPER
+// ==============================================================================
 interface PageTransitionProps {
   children: React.ReactNode;
   pathname: string;
@@ -96,14 +99,14 @@ const PageTransition: React.FC<PageTransitionProps> = ({
   children,
   pathname
 }) => (
-  <div key={pathname}>
+  <div key={pathname} className="animate-in fade-in duration-200">
     {children}
   </div>
 );
 
-// ============================================================================
+// ==============================================================================
 // MAIN APP COMPONENT
-// ============================================================================
+// ==============================================================================
 const App: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -112,11 +115,10 @@ const App: React.FC = () => {
     <ErrorBoundary
       FallbackComponent={ErrorFallback}
       onReset={() => {
-        // Clear any error state or reload the page
         window.location.reload();
       }}
     >
-      <Routes location={location} key={location.pathname}>
+      <Routes>
         {/* 🏠 CORE ROUTES - Always Available */}
         <Route 
           path="/" 
@@ -131,13 +133,13 @@ const App: React.FC = () => {
         <Route 
           path="/flights" 
           element={
-            <RouteGuard>
+            <Suspense fallback={<LoadingSpinner />}>
               <PageTransition pathname={location.pathname}>
-                <Suspense fallback={<LoadingSpinner />}>
+                <RouteGuard>
                   <Flights />
-                </Suspense>
+                </RouteGuard>
               </PageTransition>
-            </RouteGuard>
+            </Suspense>
           } 
         />
         
@@ -149,52 +151,52 @@ const App: React.FC = () => {
         <Route 
           path="/boarding-pass" 
           element={
-            <RouteGuard>
+            <Suspense fallback={<LoadingSpinner />}>
               <PageTransition pathname={location.pathname}>
-                <Suspense fallback={<LoadingSpinner />}>
+                <RouteGuard>
                   <BoardingPass />
-                </Suspense>
+                </RouteGuard>
               </PageTransition>
-            </RouteGuard>
+            </Suspense>
           } 
         />
         
         <Route 
           path="/wait-times" 
           element={
-            <RouteGuard>
+            <Suspense fallback={<LoadingSpinner />}>
               <PageTransition pathname={location.pathname}>
-                <Suspense fallback={<LoadingSpinner />}>
+                <RouteGuard>
                   <WaitTimes />
-                </Suspense>
+                </RouteGuard>
               </PageTransition>
-            </RouteGuard>
+            </Suspense>
           } 
         />
         
         <Route 
           path="/map" 
           element={
-            <RouteGuard>
+            <Suspense fallback={<LoadingSpinner />}>
               <PageTransition pathname={location.pathname}>
-                <Suspense fallback={<LoadingSpinner />}>
+                <RouteGuard>
                   <Map />
-                </Suspense>
+                </RouteGuard>
               </PageTransition>
-            </RouteGuard>
+            </Suspense>
           } 
         />
         
         <Route 
           path="/more" 
           element={
-            <RouteGuard>
+            <Suspense fallback={<LoadingSpinner />}>
               <PageTransition pathname={location.pathname}>
-                <Suspense fallback={<LoadingSpinner />}>
+                <RouteGuard>
                   <More />
-                </Suspense>
+                </RouteGuard>
               </PageTransition>
-            </RouteGuard>
+            </Suspense>
           } 
         />
         
@@ -202,30 +204,30 @@ const App: React.FC = () => {
         <Route 
           path="/identity-verification" 
           element={
-            <RouteGuard>
+            <Suspense fallback={<LoadingSpinner />}>
               <PageTransition pathname={location.pathname}>
-                <Suspense fallback={<LoadingSpinner />}>
+                <RouteGuard>
                   <ComprehensiveIdentityVerification />
-                </Suspense>
+                </RouteGuard>
               </PageTransition>
-            </RouteGuard>
+            </Suspense>
           } 
         />
         
         <Route 
           path="/enroll" 
           element={
-            <RouteGuard>
+            <Suspense fallback={<LoadingSpinner />}>
               <PageTransition pathname={location.pathname}>
-                <Suspense fallback={<LoadingSpinner />}>
+                <RouteGuard>
                   <ComprehensiveIdentityVerification />
-                </Suspense>
+                </RouteGuard>
               </PageTransition>
-            </RouteGuard>
+            </Suspense>
           } 
         />
         
-        {/* 🔗 WORKFLOW ROUTES - Complete Biometric Journey */}
+        {/* 🔗 WORKFLOW ROUTES */}
         <Route 
           path="/verify" 
           element={<Navigate to="/identity-verification" replace />} 
@@ -234,41 +236,39 @@ const App: React.FC = () => {
         <Route 
           path="/complete-verification" 
           element={
-            <RouteGuard>
+            <Suspense fallback={<LoadingSpinner />}>
               <PageTransition pathname={location.pathname}>
-                <Suspense fallback={<LoadingSpinner />}>
+                <RouteGuard>
                   <ComprehensiveIdentityVerification />
-                </Suspense>
+                </RouteGuard>
               </PageTransition>
-            </RouteGuard>
+            </Suspense>
           } 
         />
         
-        {/* 🔗 ALIASES for main workflow - Redirects old/convenience paths to the correct workflow */}
+        {/* 🔗 ALIASES */}
         <Route 
           path="/passport-scanner" 
           element={
-            <RouteGuard>
+            <Suspense fallback={<LoadingSpinner />}>
               <PageTransition pathname={location.pathname}>
-                <Suspense fallback={<LoadingSpinner />}>
-                  <UnifiedPassportScanner
-                    onScanSuccess={(result) => {
-                      navigate('/identity-verification', { state: { passportData: result.data } });
-                    }}
-                  />
-                </Suspense>
+                <UnifiedPassportScanner 
+                  onScanSuccess={(result) => {
+                    navigate('/identity-verification', { state: { passportData: result.data } });
+                  }}
+                />
               </PageTransition>
-            </RouteGuard>
+            </Suspense>
           } 
         />
         
-        <Route path="/scanner" element={<Navigate to="/passport-scanner" replace />} />
-        <Route path="/passport" element={<Navigate to="/passport-scanner" replace />} />
         <Route path="/scan" element={<Navigate to="/passport-scanner" replace />} />
-        <Route path="/biometric" element={<Navigate to="/identity-verification" replace />} />
-        <Route path="/face-verification" element={<Navigate to="/identity-verification" replace />} />
-        <Route path="/test-scanner" element={<Navigate to="/identity-verification" replace />} />
-        <Route path="/test-liveness" element={<Navigate to="/identity-verification" replace />} />
+        <Route path="/enrol" element={<Navigate to="/enroll" replace />} />
+        <Route path="/enrolment" element={<Navigate to="/enroll" replace />} />
+        <Route path="/smartpath" element={<Navigate to="/enroll" replace />} />
+        <Route path="/propass" element={<Navigate to="/enroll" replace />} />
+        <Route path="/identity" element={<Navigate to="/identity-verification" replace />} />
+        <Route path="/verification" element={<Navigate to="/identity-verification" replace />} />
         
         {/* 🚫 CATCH ALL - 404 Not Found */}
         <Route 

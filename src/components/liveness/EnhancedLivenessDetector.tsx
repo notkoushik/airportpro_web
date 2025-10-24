@@ -114,3 +114,12 @@ export function EnhancedLivenessDetector({ onComplete, onError }: Props) {
     </div>
   );
 }
+// ✅ ADD MISSING EXPORT TYPE
+export interface DetectionResult {
+  success: boolean;
+  score?: number;
+  error?: string;
+}
+
+// ✅ ADD DEFAULT EXPORT
+export default EnhancedLivenessDetector;

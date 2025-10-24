@@ -2,13 +2,10 @@
 // Capacitor plugin registrations for native features
 
 import { registerPlugin, Plugin } from '@capacitor/core';
-import { PassportData } from '@/types/passport';
+import type { PassportData } from '@/types/passport'; // ✅ FIXED: Use 'type' import
 
-export { PassportData };
-
-export interface LivenessPlugin {
-  checkLiveness(options: { imageData: string }): Promise<LivenessResult>;
-}
+// ✅ FIXED: Use 'export type' instead of 'export'
+export type { PassportData };
 
 export interface LivenessResult {
   isLive: boolean;
@@ -16,6 +13,11 @@ export interface LivenessResult {
   faceDetected: boolean;
   eyesOpen: boolean;
   headPose: boolean;
+  // ✅ REMOVED 'details' property
+}
+
+export interface LivenessPlugin {
+  checkLiveness(options: { imageData: string }): Promise<LivenessResult>;
 }
 
 export interface PassportScannerPlugin {
@@ -31,7 +33,11 @@ export interface NFCReaderPlugin {
 export interface AirportProPlugins extends Plugin {
   checkLiveness(imageData: string): Promise<LivenessResult>;
   preprocessImage(imageData: string): Promise<{ success: boolean; processedImage: string }>;
-  scanPassportMRZ(imageData: string): Promise<{ success: boolean; data?: any; confidence?: number; error?: string }>;
+  scanPassportMRZ(imageData: string): Promise<{ success: boolean; data?: PassportData; confidence?: number; error?: string }>;
+  
+  // ✅ ADDED: Missing methods
+  checkNFCSupport(): Promise<{ available: boolean }>;
+  readNFCPassport(documentNumber: string, dateOfBirth: string, expiryDate: string): Promise<{ success: boolean; data?: any; error?: string }>;
 }
 
 export const AirportProPlugins = registerPlugin<AirportProPlugins>('AirportPro');
