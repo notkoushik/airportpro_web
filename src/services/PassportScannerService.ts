@@ -1,430 +1,291 @@
-interface PassportData {
-  documentType: string;
-  countryCode: string;
-  surname: string;
-  givenNames: string;
-  passportNumber: string;
-  nationality: string;
-  dateOfBirth: string;
-  dateOfExpiry: string;
-  sex: string;
-  personalNumber?: string;
-  rawMRZ: string;
+// src/services/PassportScannerService.ts
+// Core MRZ parsing and validation logic
+
+import { PassportData, MRZLine, MRZParseResult, DocumentType } from '@/types/passport';
+
+/**
+ * Validates MRZ checksum using check digit algorithm
+ * According to ICAO Doc 9303 specifications
+ */
+function validateCheckDigit(input: string, checkDigit: string): boolean {
+  const weights = [7, 3, 1];
+  const charValues: { [key: string]: number } = {};
+  
+  // Build character value map
+  for (let i = 0; i < 10; i++) {
+    charValues[i.toString()] = i;
+  }
+  for (let i = 0; i < 26; i++) {
+    charValues[String.fromCharCode(65 + i)] = 10 + i; // A=10, B=11, ...
+  }
+  charValues['<'] = 0;
+  
+  let sum = 0;
+  for (let i = 0; i < input.length; i++) {
+    const char = input[i];
+    const value = charValues[char] || 0;
+    sum += value * weights[i % 3];
+  }
+  
+  const calculatedCheckDigit = (sum % 10).toString();
+  return calculatedCheckDigit === checkDigit;
 }
 
-interface MRZData {
-  line1: string;
-  line2: string;
-  parsed: PassportData;
-  confidence: number;
+/**
+ * Extracts name from MRZ format (SURNAME<<GIVENNAMES)
+ */
+function parseName(nameField: string): { surname: string; givenNames: string; fullName: string } {
+  const parts = nameField.split('<<');
+  const surname = (parts[0] || '').replace(/</g, ' ').trim();
+  const givenNames = (parts[1] || '').replace(/</g, ' ').trim();
+  const fullName = `${givenNames} ${surname}`.trim();
+  
+  return { surname, givenNames, fullName };
 }
 
-export class PassportScannerService {
-  // 🔧 COMPLETELY REWRITTEN MRZ PARSING WITH CORRECT FIELD POSITIONS
-  parseMRZFromText(mrzText: string): MRZData | null {
-    try {
-      console.log('🔍 Starting enhanced MRZ parsing...');
-      console.log('Raw MRZ text:', mrzText);
-      
-      // Split and clean MRZ lines
-      const lines = mrzText.split('\n')
-        .map(line => this.cleanMRZLine(line))
-        .filter(line => line.length >= 30); // MRZ lines should be at least 30 chars
-      
-      if (lines.length < 2) {
-        console.error('❌ Insufficient MRZ lines found');
-        return null;
-      }
-      
-      const line1 = lines[0];
-      const line2 = lines[1];
-      
-      console.log('✅ Cleaned Line 1:', line1);
-      console.log('✅ Cleaned Line 2:', line2);
-      
-      // Parse using industry-standard MRZ positions
-      const parsedData = this.parseStandardMRZ(line1, line2);
-      
-      if (!parsedData) {
-        console.error('❌ Failed to parse MRZ data');
-        return null;
-      }
-      
-      return {
-        line1,
-        line2,
-        parsed: parsedData,
-        confidence: this.calculateMRZConfidence(parsedData)
-      };
-      
-    } catch (error) {
-      console.error('❌ MRZ parsing error:', error);
-      return null;
-    }
-  }
+/**
+ * Converts MRZ date format (YYMMDD) to human readable
+ */
+function formatDate(mrzDate: string): string {
+  if (mrzDate.length !== 6) return mrzDate;
+  
+  const year = parseInt(mrzDate.substring(0, 2));
+  const month = mrzDate.substring(2, 4);
+  const day = mrzDate.substring(4, 6);
+  
+  // Handle century (assume 1900s for years > 50, 2000s otherwise)
+  const fullYear = year > 50 ? 1900 + year : 2000 + year;
+  
+  return `${day}/${month}/${fullYear}`;
+}
 
-  // 🔧 INDUSTRY STANDARD MRZ CLEANING
-  private cleanMRZLine(line: string): string {
-    return line
-      .toUpperCase()
-      .replace(/\s/g, '') // Remove all spaces
-      .replace(/[^A-Z0-9<]/g, '<') // Replace invalid chars with <
-      .replace(/0/g, 'O') // In names, 0 should be O
-      .replace(/1/g, 'I') // In names, 1 should be I
-      .padEnd(44, '<'); // Ensure 44 characters
-  }
-
-  // 🔧 STANDARD MRZ PARSING ACCORDING TO ICAO DOC 9303
-  private parseStandardMRZ(line1: string, line2: string): PassportData | null {
-    try {
-      console.log('🔍 Parsing with ICAO DOC 9303 standard...');
-      
-      // LINE 1: P<ISOCOUNTRYCODE<SURNAME<<GIVENNAMES<<<<<<<<<<<<<<<
-      // Position 0: Document type (P)
-      // Position 1: Reserved (<)
-      // Position 2-4: Issuing country (3 chars)
-      // Position 5-43: Names (surname<<given names)
-      
-      const documentType = line1.charAt(0) || 'P';
-      const countryCode = line1.substring(2, 5).replace(/</g, '');
-      
-      // Parse names from position 5 onwards
-      const nameData = this.parseNameField(line1.substring(5));
-      
-      // LINE 2: PASSPORTNUMBER<DDDCOUNTRYDATE<SEXDATE<PERSONALNUMBER<<<D
-      // Position 0-8: Passport number
-      // Position 9: Check digit
-      // Position 10-12: Nationality
-      // Position 13-18: Date of birth (YYMMDD)
-      // Position 19: Check digit
-      // Position 20: Sex
-      // Position 21-26: Date of expiry (YYMMDD)
-      // Position 27: Check digit
-      // Position 28-41: Personal number
-      // Position 42: Check digit for personal number
-      // Position 43: Composite check digit
-      
-      const passportNumber = this.extractField(line2, 0, 9);
-      const nationalityCode = this.extractField(line2, 10, 13);
-      const birthDateRaw = this.extractField(line2, 13, 19);
-      const sex = this.extractField(line2, 20, 21);
-      const expiryDateRaw = this.extractField(line2, 21, 27);
-      const personalNumber = this.extractField(line2, 28, 42);
-      
-      // Convert dates
-      const dateOfBirth = this.convertMRZDate(birthDateRaw);
-      const dateOfExpiry = this.convertMRZDate(expiryDateRaw);
-      
-      // Get nationality name
-      const nationality = this.getCountryName(nationalityCode || countryCode);
-      
-      const result: PassportData = {
-        documentType,
-        countryCode: countryCode || 'UNK',
-        surname: nameData.surname,
-        givenNames: nameData.givenNames,
-        passportNumber: passportNumber || 'UNKNOWN',
-        nationality,
-        dateOfBirth,
-        dateOfExpiry,
-        sex: sex || 'U',
-        personalNumber: personalNumber || undefined,
-        rawMRZ: `${line1}\n${line2}`
-      };
-      
-      console.log('✅ Successfully parsed MRZ:', result);
-      return result;
-      
-    } catch (error) {
-      console.error('❌ Error in standard MRZ parsing:', error);
-      return null;
-    }
-  }
-
-  // 🔧 ENHANCED NAME PARSING WITH PROPER MRZ FORMAT
-  private parseNameField(nameField: string): { surname: string; givenNames: string } {
-    console.log('🔍 Parsing name field:', nameField);
-    
-    // Remove trailing < characters
-    const cleaned = nameField.replace(/<+$/, '');
-    
-    // Standard MRZ format: SURNAME<<GIVENNAME<GIVENNAME2
-    if (cleaned.includes('<<')) {
-      const parts = cleaned.split('<<');
-      const surname = parts[0].replace(/</g, ' ').trim();
-      const givenNamesRaw = parts[1] || '';
-      const givenNames = givenNamesRaw.replace(/</g, ' ').replace(/\s+/g, ' ').trim();
-      
-      console.log('✅ Parsed with << separator:', { surname, givenNames });
+/**
+ * Parse Type-3 MRZ (2 lines, 44 characters each) - Standard Passport
+ */
+function parseType3MRZ(line1: string, line2: string): MRZParseResult {
+  try {
+    if (line1.length !== 44 || line2.length !== 44) {
       return {
-        surname: surname || 'UNKNOWN',
-        givenNames: givenNames || 'UNKNOWN'
+        success: false,
+        error: `Invalid MRZ length. Expected 44 chars per line, got ${line1.length} and ${line2.length}`
       };
     }
     
-    // Fallback: single < separator
-    const parts = cleaned.split('<');
-    if (parts.length >= 2) {
-      const surname = parts[0].trim();
-      const givenNames = parts.slice(1).join(' ').replace(/\s+/g, ' ').trim();
-      
-      console.log('✅ Parsed with single < separator:', { surname, givenNames });
-      return {
-        surname: surname || 'UNKNOWN',
-        givenNames: givenNames || 'UNKNOWN'
-      };
-    }
+    // Line 1: P<ISSSURNAME<<GIVENNAMES
+    const documentCode = line1.substring(0, 2);
+    const issuingCountry = line1.substring(2, 5).replace(/</g, '');
+    const nameField = line1.substring(5, 44);
+    const { surname, givenNames, fullName } = parseName(nameField);
     
-    // Last resort: treat entire field as surname
-    console.log('⚠️ Using entire field as surname');
+    // Line 2: Passport#CheckDOBCheckExpCheckPersonal#CheckFinal
+    const passportNumber = line2.substring(0, 9).replace(/</g, '');
+    const passportCheckDigit = line2.substring(9, 10);
+    const nationality = line2.substring(10, 13).replace(/</g, '');
+    const dateOfBirth = line2.substring(13, 19);
+    const dobCheckDigit = line2.substring(19, 20);
+    const sex = line2.substring(20, 21);
+    const expiryDate = line2.substring(21, 27);
+    const expiryCheckDigit = line2.substring(27, 28);
+    const personalNumber = line2.substring(28, 42).replace(/</g, '');
+    const personalCheckDigit = line2.substring(42, 43);
+    const finalCheckDigit = line2.substring(43, 44);
+    
+    // Validate checksums
+    const passportNumberValid = validateCheckDigit(
+      line2.substring(0, 9), 
+      passportCheckDigit
+    );
+    const dateOfBirthValid = validateCheckDigit(dateOfBirth, dobCheckDigit);
+    const expiryDateValid = validateCheckDigit(expiryDate, expiryCheckDigit);
+    const personalNumberValid = personalNumber 
+      ? validateCheckDigit(line2.substring(28, 42), personalCheckDigit)
+      : true;
+    
+    // Final check digit validates entire line 2 (except final check digit itself)
+    const compositeString = line2.substring(0, 10) + 
+                           line2.substring(13, 20) + 
+                           line2.substring(21, 43);
+    const finalValid = validateCheckDigit(compositeString, finalCheckDigit);
+    
+    const checksumValid = passportNumberValid && 
+                         dateOfBirthValid && 
+                         expiryDateValid && 
+                         personalNumberValid && 
+                         finalValid;
+    
+    const data: PassportData = {
+      documentType: documentCode,
+      documentCode,
+      surname,
+      givenNames,
+      fullName,
+      passportNumber,
+      nationality,
+      issuingCountry,
+      dateOfBirth,
+      dateOfBirthFormatted: formatDate(dateOfBirth),
+      expiryDate,
+      expiryDateFormatted: formatDate(expiryDate),
+      sex,
+      personalNumber: personalNumber || undefined,
+      checksumValid,
+      checksumDetails: {
+        passportNumberValid,
+        dateOfBirthValid,
+        expiryDateValid,
+        personalNumberValid,
+        finalValid
+      },
+      rawMRZ: { line1, line2 },
+      parsedAt: new Date()
+    };
+    
     return {
-      surname: cleaned.replace(/</g, ' ').trim() || 'UNKNOWN',
-      givenNames: 'UNKNOWN'
-    };
-  }
-
-  // 🔧 SAFE FIELD EXTRACTION WITH BOUNDS CHECKING
-  private extractField(line: string, start: number, end: number): string {
-    if (start >= line.length) return '';
-    
-    const actualEnd = Math.min(end, line.length);
-    const field = line.substring(start, actualEnd);
-    
-    // Clean the field
-    return field.replace(/</g, '').trim();
-  }
-
-  // 🔧 ROBUST DATE CONVERSION WITH VALIDATION
-  private convertMRZDate(mrzDate: string): string {
-    if (!mrzDate || mrzDate.length !== 6) {
-      console.warn('⚠️ Invalid MRZ date format:', mrzDate);
-      return 'Invalid Date';
-    }
-    
-    try {
-      const year = parseInt(mrzDate.substring(0, 2));
-      const month = parseInt(mrzDate.substring(2, 4));
-      const day = parseInt(mrzDate.substring(4, 6));
-      
-      // Validate components
-      if (isNaN(year) || isNaN(month) || isNaN(day)) {
-        console.warn('⚠️ Non-numeric date components:', { year, month, day });
-        return 'Invalid Date';
-      }
-      
-      if (month < 1 || month > 12 || day < 1 || day > 31) {
-        console.warn('⚠️ Invalid date values:', { year, month, day });
-        return 'Invalid Date';
-      }
-      
-      // Determine full year (improved logic)
-      let fullYear: number;
-      const currentYear = new Date().getFullYear();
-      const currentYearShort = currentYear % 100;
-      
-      if (year <= currentYearShort + 10) {
-        // Recent or near-future years
-        fullYear = 2000 + year;
-      } else {
-        // Past years
-        fullYear = 1900 + year;
-      }
-      
-      // Final validation
-      const date = new Date(fullYear, month - 1, day);
-      if (date.getFullYear() !== fullYear || 
-          date.getMonth() !== month - 1 || 
-          date.getDate() !== day) {
-        console.warn('⚠️ Invalid date combination:', { fullYear, month, day });
-        return 'Invalid Date';
-      }
-      
-      // Return in DD/MM/YYYY format
-      const result = `${day.toString().padStart(2, '0')}/${month.toString().padStart(2, '0')}/${fullYear}`;
-      console.log(`✅ Converted date ${mrzDate} -> ${result}`);
-      return result;
-      
-    } catch (error) {
-      console.error('❌ Date conversion error:', error);
-      return 'Invalid Date';
-    }
-  }
-
-  // 🔧 COMPREHENSIVE COUNTRY MAPPING
-  private getCountryName(code: string): string {
-    const countries: { [key: string]: string } = {
-      // Major countries
-      'IND': 'India',
-      'USA': 'United States',
-      'GBR': 'United Kingdom', 
-      'CAN': 'Canada',
-      'AUS': 'Australia',
-      'DEU': 'Germany',
-      'FRA': 'France',
-      'CHN': 'China',
-      'JPN': 'Japan',
-      'KOR': 'South Korea',
-      'SGP': 'Singapore',
-      'ARE': 'United Arab Emirates',
-      'SAU': 'Saudi Arabia',
-      
-      // South Asian countries
-      'NPL': 'Nepal',
-      'BGD': 'Bangladesh', 
-      'PAK': 'Pakistan',
-      'LKA': 'Sri Lanka',
-      'BTN': 'Bhutan',
-      'MDV': 'Maldives',
-      'AFG': 'Afghanistan',
-      
-      // Southeast Asian countries
-      'IDN': 'Indonesia',
-      'THA': 'Thailand',
-      'MYS': 'Malaysia',
-      'PHL': 'Philippines',
-      'VNM': 'Vietnam',
-      'MMR': 'Myanmar',
-      'KHM': 'Cambodia',
-      'LAO': 'Laos',
-      'BRN': 'Brunei',
-      
-      // Middle Eastern countries
-      'IRN': 'Iran',
-      'IRQ': 'Iraq',
-      'ISR': 'Israel',
-      'JOR': 'Jordan',
-      'KWT': 'Kuwait',
-      'LBN': 'Lebanon',
-      'OMN': 'Oman',
-      'QAT': 'Qatar',
-      'SYR': 'Syria',
-      'TUR': 'Turkey',
-      'YEM': 'Yemen',
-      
-      // European countries
-      'ITA': 'Italy',
-      'ESP': 'Spain',
-      'NLD': 'Netherlands',
-      'BEL': 'Belgium',
-      'CHE': 'Switzerland',
-      'AUT': 'Austria',
-      'SWE': 'Sweden',
-      'NOR': 'Norway',
-      'DNK': 'Denmark',
-      'FIN': 'Finland',
-      'POL': 'Poland',
-      'CZE': 'Czech Republic',
-      'HUN': 'Hungary',
-      'ROU': 'Romania',
-      'BGR': 'Bulgaria',
-      'GRC': 'Greece',
-      'PRT': 'Portugal',
-      'IRL': 'Ireland',
-      'RUS': 'Russia',
-      'UKR': 'Ukraine',
-      
-      // African countries
-      'ZAF': 'South Africa',
-      'EGY': 'Egypt',
-      'NGA': 'Nigeria',
-      'KEN': 'Kenya',
-      'ETH': 'Ethiopia',
-      'GHA': 'Ghana',
-      'TUN': 'Tunisia',
-      'MAR': 'Morocco',
-      'DZA': 'Algeria',
-      'LBY': 'Libya',
-      
-      // American countries
-      'MEX': 'Mexico',
-      'BRA': 'Brazil',
-      'ARG': 'Argentina',
-      'CHL': 'Chile',
-      'COL': 'Colombia',
-      'PER': 'Peru',
-      'VEN': 'Venezuela',
-      'URY': 'Uruguay',
-      'PRY': 'Paraguay',
-      'BOL': 'Bolivia',
-      'ECU': 'Ecuador',
-      
-      // Oceanian countries
-      'NZL': 'New Zealand',
-      'FJI': 'Fiji',
-      'PNG': 'Papua New Guinea',
-      'VUT': 'Vanuatu',
-      'TON': 'Tonga',
-      'WSM': 'Samoa',
-      'PLW': 'Palau',
-      'MHL': 'Marshall Islands',
-      'FSM': 'Micronesia',
-      'KIR': 'Kiribati',
-      'NRU': 'Nauru',
-      'TUV': 'Tuvalu'
+      success: true,
+      data,
+      rawText: `${line1}\n${line2}`
     };
     
-    const cleanCode = code.replace(/[^A-Z]/g, '');
-    return countries[cleanCode] || cleanCode || 'Unknown';
-  }
-
-  // 🔧 ENHANCED CONFIDENCE CALCULATION
-  private calculateMRZConfidence(data: PassportData): number {
-    let score = 0;
-    const maxScore = 8;
-    
-    // Document type (10 points)
-    if (['P', 'V', 'I'].includes(data.documentType)) score += 1;
-    
-    // Country code (10 points)
-    if (data.countryCode && data.countryCode.length === 3 && /^[A-Z]{3}$/.test(data.countryCode)) score += 1;
-    
-    // Names (20 points)
-    if (data.surname && data.surname !== 'UNKNOWN' && data.surname.length > 1) score += 1;
-    if (data.givenNames && data.givenNames !== 'UNKNOWN' && data.givenNames.length > 1) score += 1;
-    
-    // Passport number (10 points)
-    if (data.passportNumber && data.passportNumber !== 'UNKNOWN' && data.passportNumber.length >= 6) score += 1;
-    
-    // Dates (30 points)
-    if (this.isValidFormattedDate(data.dateOfBirth)) score += 1;
-    if (this.isValidFormattedDate(data.dateOfExpiry)) score += 1;
-    
-    // Sex (10 points)
-    if (['M', 'F', 'X'].includes(data.sex)) score += 1;
-    
-    const confidence = score / maxScore;
-    console.log(`✅ MRZ confidence calculated: ${(confidence * 100).toFixed(1)}% (${score}/${maxScore})`);
-    return confidence;
-  }
-
-  // 🔧 DATE VALIDATION HELPER
-  private isValidFormattedDate(dateStr: string): boolean {
-    if (!dateStr || dateStr === 'Invalid Date') return false;
-    
-    try {
-      // Check DD/MM/YYYY format
-      const parts = dateStr.split('/');
-      if (parts.length !== 3) return false;
-      
-      const day = parseInt(parts[0]);
-      const month = parseInt(parts[1]);
-      const year = parseInt(parts[2]);
-      
-      if (isNaN(day) || isNaN(month) || isNaN(year)) return false;
-      
-      const date = new Date(year, month - 1, day);
-      return date.getFullYear() === year &&
-             date.getMonth() === month - 1 &&
-             date.getDate() === day &&
-             year >= 1900 && year <= 2100;
-    } catch {
-      return false;
-    }
-  }
-
-  // 🔧 PUBLIC METHOD FOR EASY INTEGRATION
-  public static parsePassportMRZ(mrzText: string): MRZData | null {
-    const scanner = new PassportScannerService();
-    return scanner.parseMRZFromText(mrzText);
+  } catch (error) {
+    return {
+      success: false,
+      error: `MRZ parsing failed: ${error}`,
+      rawText: `${line1}\n${line2}`
+    };
   }
 }
+
+/**
+ * Parse Type-1 MRZ (3 lines, 30 characters each) - ID Cards
+ */
+function parseType1MRZ(line1: string, line2: string, line3: string): MRZParseResult {
+  try {
+    if (line1.length !== 30 || line2.length !== 30 || line3.length !== 30) {
+      return {
+        success: false,
+        error: `Invalid ID card MRZ length. Expected 30 chars per line`
+      };
+    }
+    
+    // Line 1: ISISSSDOCUMENT#CHECKOPT
+    const documentCode = line1.substring(0, 2);
+    const issuingCountry = line1.substring(2, 5).replace(/</g, '');
+    const documentNumber = line1.substring(5, 14).replace(/</g, '');
+    const docCheckDigit = line1.substring(14, 15);
+    const optionalData = line1.substring(15, 30).replace(/</g, '');
+    
+    // Line 2: DOBCHECKGENDEREXPCHECKNAT
+    const dateOfBirth = line2.substring(0, 6);
+    const dobCheckDigit = line2.substring(6, 7);
+    const sex = line2.substring(7, 8);
+    const expiryDate = line2.substring(8, 14);
+    const expiryCheckDigit = line2.substring(14, 15);
+    const nationality = line2.substring(15, 18).replace(/</g, '');
+    const optionalData2 = line2.substring(18, 29).replace(/</g, '');
+    const finalCheckDigit = line2.substring(29, 30);
+    
+    // Line 3: SURNAME<<GIVENNAMES
+    const nameField = line3;
+    const { surname, givenNames, fullName } = parseName(nameField);
+    
+    // Validate checksums
+    const documentNumberValid = validateCheckDigit(
+      line1.substring(5, 14), 
+      docCheckDigit
+    );
+    const dateOfBirthValid = validateCheckDigit(dateOfBirth, dobCheckDigit);
+    const expiryDateValid = validateCheckDigit(expiryDate, expiryCheckDigit);
+    
+    const compositeString = line1.substring(5, 30) + line2.substring(0, 7) + line2.substring(8, 15) + line2.substring(18, 29);
+    const finalValid = validateCheckDigit(compositeString, finalCheckDigit);
+    
+    const checksumValid = documentNumberValid && 
+                         dateOfBirthValid && 
+                         expiryDateValid && 
+                         finalValid;
+    
+    const data: PassportData = {
+      documentType: documentCode,
+      documentCode,
+      surname,
+      givenNames,
+      fullName,
+      passportNumber: documentNumber,
+      nationality,
+      issuingCountry,
+      dateOfBirth,
+      dateOfBirthFormatted: formatDate(dateOfBirth),
+      expiryDate,
+      expiryDateFormatted: formatDate(expiryDate),
+      sex,
+      optionalData: `${optionalData} ${optionalData2}`.trim() || undefined,
+      checksumValid,
+      checksumDetails: {
+        passportNumberValid: documentNumberValid,
+        dateOfBirthValid,
+        expiryDateValid,
+        finalValid
+      },
+      rawMRZ: { line1, line2, line3 },
+      parsedAt: new Date()
+    };
+    
+    return {
+      success: true,
+      data,
+      rawText: `${line1}\n${line2}\n${line3}`
+    };
+    
+  } catch (error) {
+    return {
+      success: false,
+      error: `ID card MRZ parsing failed: ${error}`,
+      rawText: `${line1}\n${line2}\n${line3}`
+    };
+  }
+}
+
+/**
+ * Main MRZ parsing function - auto-detects type
+ */
+export function parseMRZ(mrzText: string): MRZParseResult {
+  const lines = mrzText
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => line.length > 0);
+  
+  if (lines.length === 2) {
+    // Type-3 MRZ (Passport)
+    return parseType3MRZ(lines[0], lines[1]);
+  } else if (lines.length === 3) {
+    // Type-1 MRZ (ID Card)
+    return parseType1MRZ(lines[0], lines[1], lines[2]);
+  } else {
+    return {
+      success: false,
+      error: `Invalid MRZ format. Expected 2 or 3 lines, got ${lines.length}`,
+      rawText: mrzText
+    };
+  }
+}
+
+/**
+ * Preprocesses MRZ text from OCR output
+ * Cleans common OCR errors
+ */
+export function preprocessMRZText(ocrText: string): string {
+  return ocrText
+    .toUpperCase()
+    .replace(/\s+/g, '') // Remove all whitespace
+    .replace(/0/g, 'O') // Common OCR confusion: 0 -> O
+    .replace(/1/g, 'I') // Common OCR confusion: 1 -> I (in some contexts)
+    .replace(/8/g, 'B') // Common OCR confusion in some fonts
+    .replace(/[^A-Z0-9<]/g, '<'); // Replace invalid chars with <
+}
+
+export const PassportScannerService = {
+  parseMRZ,
+  preprocessMRZText,
+  validateCheckDigit,
+  formatDate
+};

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 // CORRECTED IMPORT PATH
-import { AirportProPlugins, LivenessResult } from '@/lib/capacitor-plugins';
+import { AirportProPlugins, LivenessResult } from '@/lib/capacitor-plugins'; // This path seems correct based on tsconfig
 
 interface Props {
   mode: 'liveness' | 'passport' | 'selfie';
@@ -422,4 +422,3 @@ export default function MLKitCameraFeed({ mode, onResult, onError, autoCapture =
     </div>
   );
 }
-
