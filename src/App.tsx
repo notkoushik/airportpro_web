@@ -254,8 +254,8 @@ const App: React.FC = () => {
               <PageTransition pathname={location.pathname}>
                 <UnifiedPassportScanner 
                   onScanSuccess={(result) => {
-                    navigate('/identity-verification', { state: { passportData: result } });
-                  }}
+  navigate('/identity-verification', { state: { passportData: result } }); // <-- FIX
+}}
                 />
               </PageTransition>
             </Suspense>
