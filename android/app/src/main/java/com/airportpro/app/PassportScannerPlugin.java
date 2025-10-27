@@ -27,12 +27,15 @@ import org.json.JSONException;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;  // Add this if missing
+import java.util.Comparator;   // Add this if missing
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.regex.Pattern;
+
 
 @CapacitorPlugin(
     name = "PassportScanner",
@@ -251,36 +254,51 @@ public class PassportScannerPlugin extends Plugin {
     }
     
     private List<String> extractMRZLines(Text visionText) {
-        List<String> mrzLines = new ArrayList<>();
-        Pattern mrzPattern = Pattern.compile("^[A-Z0-9<]+$");
-        Map<Float, String> linesByY = new HashMap<>();
-        
-        for (Text.TextBlock block : visionText.getTextBlocks()) {
-            for (Text.Line line : block.getLines()) {
-                String text = line.getText().toUpperCase().replaceAll("\\s", "");
-                text = cleanMRZText(text);
-                
-                if (text.length() >= 36 && text.length() <= 46 && mrzPattern.matcher(text).matches()) {
-                    float y = line.getBoundingBox() != null ? line.getBoundingBox().bottom : 0;
-                    linesByY.put(y, text);
-                }
+    List<String> mrzLines = new ArrayList<>();
+    Pattern mrzPattern = Pattern.compile("^[A-Z0-9<]+$");
+    Map<Float, String> linesByY = new HashMap<>();
+    
+    for (Text.TextBlock block : visionText.getTextBlocks()) {
+        for (Text.Line line : block.getLines()) {
+            String text = line.getText().toUpperCase().replaceAll("\\s", "");
+            
+            // Clean common OCR substitutions
+            text = cleanMRZText(text);
+            
+            // More flexible length check for MRZ lines
+            if (text.length() >= 36 && text.length() <= 46 && mrzPattern.matcher(text).matches()) {
+                // Use Y coordinate to sort (bottom lines first for MRZ)
+                float y = line.getBoundingBox() != null ? line.getBoundingBox().bottom : 0;
+                linesByY.put(y, text);
             }
         }
-        
-        List<Map.Entry<Float, String>> sortedEntries = new ArrayList<>(linesByY.entrySet());
-        sortedEntries.sort((a, b) -> Float.compare(b.getKey(), a.getKey()));
-        
-        int count = 0;
-        for (Map.Entry<Float, String> entry : sortedEntries) {
-            if (count < 3) {
-                mrzLines.add(entry.getValue());
-                count++;
-            }
-        }
-        
-        java.util.Collections.reverse(mrzLines);
-        return mrzLines;
     }
+    
+    // Sort by Y coordinate (descending - bottom to top)
+    // Use Collections.sort instead of List.sort for API 23 compatibility
+    List<Map.Entry<Float, String>> sortedEntries = new ArrayList<>(linesByY.entrySet());
+    Collections.sort(sortedEntries, new Comparator<Map.Entry<Float, String>>() {
+        @Override
+        public int compare(Map.Entry<Float, String> a, Map.Entry<Float, String> b) {
+            return Float.compare(b.getKey(), a.getKey());
+        }
+    });
+    
+    // Take up to 3 lines (for TD1 which has 3 lines)
+    int count = 0;
+    for (Map.Entry<Float, String> entry : sortedEntries) {
+        if (count < 3) {
+            mrzLines.add(entry.getValue());
+            count++;
+        }
+    }
+    
+    // Reverse to get proper order (top to bottom)
+    Collections.reverse(mrzLines);
+    
+    return mrzLines;
+}
+
     
     private String cleanMRZText(String text) {
         StringBuilder cleaned = new StringBuilder();
