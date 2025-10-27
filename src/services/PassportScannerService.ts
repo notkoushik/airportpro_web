@@ -1,5 +1,3 @@
-// src/services/PassportScannerService.ts
-// Core MRZ parsing and validation logic
 
 import { PassportData, MRZLine, MRZParseResult, DocumentType } from '@/types/passport';
 
@@ -10,7 +8,7 @@ import { PassportData, MRZLine, MRZParseResult, DocumentType } from '@/types/pas
 function validateCheckDigit(input: string, checkDigit: string): boolean {
   const weights = [7, 3, 1];
   const charValues: { [key: string]: number } = {};
-  
+
   // Build character value map
   for (let i = 0; i < 10; i++) {
     charValues[i.toString()] = i;
@@ -19,14 +17,14 @@ function validateCheckDigit(input: string, checkDigit: string): boolean {
     charValues[String.fromCharCode(65 + i)] = 10 + i; // A=10, B=11, ...
   }
   charValues['<'] = 0;
-  
+
   let sum = 0;
   for (let i = 0; i < input.length; i++) {
     const char = input[i];
     const value = charValues[char] || 0;
     sum += value * weights[i % 3];
   }
-  
+
   const calculatedCheckDigit = (sum % 10).toString();
   return calculatedCheckDigit === checkDigit;
 }
@@ -36,10 +34,10 @@ function validateCheckDigit(input: string, checkDigit: string): boolean {
  */
 function parseName(nameField: string): { surname: string; givenNames: string; fullName: string } {
   const parts = nameField.split('<<');
-  const surname = (parts[0] || '').replace(/</g, ' ').trim();
-  const givenNames = (parts[1] || '').replace(/</g, ' ').trim();
+  const surname = parts[0].replace(/</g, ' ').trim();
+  const givenNames = parts[1] ? parts[1].replace(/</g, ' ').trim() : '';
   const fullName = `${givenNames} ${surname}`.trim();
-  
+
   return { surname, givenNames, fullName };
 }
 
@@ -48,14 +46,14 @@ function parseName(nameField: string): { surname: string; givenNames: string; fu
  */
 function formatDate(mrzDate: string): string {
   if (mrzDate.length !== 6) return mrzDate;
-  
+
   const year = parseInt(mrzDate.substring(0, 2));
   const month = mrzDate.substring(2, 4);
   const day = mrzDate.substring(4, 6);
-  
+
   // Handle century (assume 1900s for years > 50, 2000s otherwise)
   const fullYear = year > 50 ? 1900 + year : 2000 + year;
-  
+
   return `${day}/${month}/${fullYear}`;
 }
 
@@ -70,13 +68,13 @@ function parseType3MRZ(line1: string, line2: string): MRZParseResult {
         error: `Invalid MRZ length. Expected 44 chars per line, got ${line1.length} and ${line2.length}`
       };
     }
-    
+
     // Line 1: P<ISSSURNAME<<GIVENNAMES
     const documentCode = line1.substring(0, 2);
     const issuingCountry = line1.substring(2, 5).replace(/</g, '');
     const nameField = line1.substring(5, 44);
     const { surname, givenNames, fullName } = parseName(nameField);
-    
+
     // Line 2: Passport#CheckDOBCheckExpCheckPersonal#CheckFinal
     const passportNumber = line2.substring(0, 9).replace(/</g, '');
     const passportCheckDigit = line2.substring(9, 10);
@@ -89,7 +87,7 @@ function parseType3MRZ(line1: string, line2: string): MRZParseResult {
     const personalNumber = line2.substring(28, 42).replace(/</g, '');
     const personalCheckDigit = line2.substring(42, 43);
     const finalCheckDigit = line2.substring(43, 44);
-    
+
     // Validate checksums
     const passportNumberValid = validateCheckDigit(
       line2.substring(0, 9), 
@@ -100,21 +98,21 @@ function parseType3MRZ(line1: string, line2: string): MRZParseResult {
     const personalNumberValid = personalNumber 
       ? validateCheckDigit(line2.substring(28, 42), personalCheckDigit)
       : true;
-    
+
     // Final check digit validates entire line 2 (except final check digit itself)
     const compositeString = line2.substring(0, 10) + 
                            line2.substring(13, 20) + 
                            line2.substring(21, 43);
     const finalValid = validateCheckDigit(compositeString, finalCheckDigit);
-    
+
     const checksumValid = passportNumberValid && 
                          dateOfBirthValid && 
                          expiryDateValid && 
-                         personalNumberValid && 
+                         personalNumberValid &&
                          finalValid;
-    
+
     const data: PassportData = {
-      documentType: documentCode,
+      documentType: documentCode[0],
       documentCode,
       surname,
       givenNames,
@@ -139,13 +137,13 @@ function parseType3MRZ(line1: string, line2: string): MRZParseResult {
       rawMRZ: { line1, line2 },
       parsedAt: new Date()
     };
-    
+
     return {
       success: true,
       data,
       rawText: `${line1}\n${line2}`
     };
-    
+
   } catch (error) {
     return {
       success: false,
@@ -166,14 +164,14 @@ function parseType1MRZ(line1: string, line2: string, line3: string): MRZParseRes
         error: `Invalid ID card MRZ length. Expected 30 chars per line`
       };
     }
-    
+
     // Line 1: ISISSSDOCUMENT#CHECKOPT
     const documentCode = line1.substring(0, 2);
     const issuingCountry = line1.substring(2, 5).replace(/</g, '');
     const documentNumber = line1.substring(5, 14).replace(/</g, '');
     const docCheckDigit = line1.substring(14, 15);
     const optionalData = line1.substring(15, 30).replace(/</g, '');
-    
+
     // Line 2: DOBCHECKGENDEREXPCHECKNAT
     const dateOfBirth = line2.substring(0, 6);
     const dobCheckDigit = line2.substring(6, 7);
@@ -183,11 +181,11 @@ function parseType1MRZ(line1: string, line2: string, line3: string): MRZParseRes
     const nationality = line2.substring(15, 18).replace(/</g, '');
     const optionalData2 = line2.substring(18, 29).replace(/</g, '');
     const finalCheckDigit = line2.substring(29, 30);
-    
+
     // Line 3: SURNAME<<GIVENNAMES
     const nameField = line3;
     const { surname, givenNames, fullName } = parseName(nameField);
-    
+
     // Validate checksums
     const documentNumberValid = validateCheckDigit(
       line1.substring(5, 14), 
@@ -195,15 +193,15 @@ function parseType1MRZ(line1: string, line2: string, line3: string): MRZParseRes
     );
     const dateOfBirthValid = validateCheckDigit(dateOfBirth, dobCheckDigit);
     const expiryDateValid = validateCheckDigit(expiryDate, expiryCheckDigit);
-    
+
     const compositeString = line1.substring(5, 30) + line2.substring(0, 7) + line2.substring(8, 15) + line2.substring(18, 29);
     const finalValid = validateCheckDigit(compositeString, finalCheckDigit);
-    
+
     const checksumValid = documentNumberValid && 
                          dateOfBirthValid && 
                          expiryDateValid && 
                          finalValid;
-    
+
     const data: PassportData = {
       documentType: documentCode,
       documentCode,
@@ -229,13 +227,13 @@ function parseType1MRZ(line1: string, line2: string, line3: string): MRZParseRes
       rawMRZ: { line1, line2, line3 },
       parsedAt: new Date()
     };
-    
+
     return {
       success: true,
       data,
       rawText: `${line1}\n${line2}\n${line3}`
     };
-    
+
   } catch (error) {
     return {
       success: false,
@@ -253,7 +251,7 @@ export function parseMRZ(mrzText: string): MRZParseResult {
     .split('\n')
     .map(line => line.trim())
     .filter(line => line.length > 0);
-  
+
   if (lines.length === 2) {
     // Type-3 MRZ (Passport)
     return parseType3MRZ(lines[0], lines[1]);
@@ -289,3 +287,4 @@ export const PassportScannerService = {
   validateCheckDigit,
   formatDate
 };
+

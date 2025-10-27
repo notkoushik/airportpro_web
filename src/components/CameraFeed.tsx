@@ -1,4 +1,3 @@
-// src/components/CameraFeed.tsx - COMPLETE CORRECTED VERSION
 import React, { useEffect, useRef, useState } from 'react';
 import * as faceapi from '@vladmandic/face-api';
 
@@ -20,7 +19,7 @@ export default function CameraFeed({
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef<number | null>(null);
-  
+
   const [modelsLoaded, setModelsLoaded] = useState(false);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -29,18 +28,18 @@ export default function CameraFeed({
   // Load face-api models with proper error handling
   useEffect(() => {
     let cancelled = false;
-    
+
     async function loadModels() {
       try {
         setIsLoading(true);
-        
+
         // Load models sequentially with error handling
         await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
         if (cancelled) return;
-        
+
         await faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL);
         if (cancelled) return;
-        
+
         if (!cancelled) {
           setModelsLoaded(true);
           setError(null);
@@ -55,9 +54,9 @@ export default function CameraFeed({
         setIsLoading(false);
       }
     }
-    
+
     loadModels();
-    
+
     return () => { 
       cancelled = true; 
     };
@@ -66,9 +65,9 @@ export default function CameraFeed({
   // Start camera when models are ready
   useEffect(() => {
     if (!modelsLoaded || !autoStart) return;
-    
+
     let stopped = false;
-    
+
     async function startCamera() {
       try {
         const media = await navigator.mediaDevices.getUserMedia({
@@ -79,20 +78,20 @@ export default function CameraFeed({
           },
           audio: false,
         });
-        
+
         if (stopped) {
           media.getTracks().forEach(t => t.stop());
           return;
         }
-        
+
         setStream(media);
-        
+
         if (videoRef.current) {
           videoRef.current.srcObject = media;
           await videoRef.current.play().catch(err => {
             console.error('[CameraFeed] Video play failed:', err);
           });
-          
+
           // Wait for video to be ready before starting detection
           videoRef.current.onloadedmetadata = () => {
             runDetectionLoop();
@@ -105,9 +104,9 @@ export default function CameraFeed({
         onError?.(e instanceof Error ? e : new Error(errorMsg));
       }
     }
-    
+
     startCamera();
-    
+
     return () => { 
       stopped = true; 
     };
@@ -116,28 +115,28 @@ export default function CameraFeed({
   // Face detection loop with proper error handling
   const runDetectionLoop = () => {
     cancelDetectionLoop();
-    
+
     const loop = async () => {
       const video = videoRef.current;
       const canvas = canvasRef.current;
-      
+
       if (!video || !canvas || video.readyState !== 4) {
         rafRef.current = requestAnimationFrame(loop);
         return;
       }
-      
+
       // Match canvas to video dimensions
       const { videoWidth, videoHeight } = video;
       if (videoWidth && videoHeight) {
         if (canvas.width !== videoWidth) canvas.width = videoWidth;
         if (canvas.height !== videoHeight) canvas.height = videoHeight;
       }
-      
+
       const ctx = canvas.getContext('2d');
       if (ctx) {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
       }
-      
+
       try {
         const detection = await faceapi
           .detectSingleFace(
@@ -148,19 +147,19 @@ export default function CameraFeed({
             })
           )
           .withFaceLandmarks(true);
-        
+
         // Notify parent component
         onFace?.(!!detection);
-        
+
         // Draw detection overlay
         if (detection && ctx) {
           const resized = faceapi.resizeResults(
             detection, 
             { width: canvas.width, height: canvas.height }
           );
-          
+
           faceapi.draw.drawDetections(canvas, resized);
-          
+
           if (resized.landmarks) {
             faceapi.draw.drawFaceLandmarks(canvas, resized);
           }
@@ -169,10 +168,10 @@ export default function CameraFeed({
         // Continue loop even on detection errors
         console.warn('[CameraFeed] Detection error:', e);
       }
-      
+
       rafRef.current = requestAnimationFrame(loop);
     };
-    
+
     rafRef.current = requestAnimationFrame(loop);
   };
 
@@ -194,7 +193,7 @@ export default function CameraFeed({
   }, [stream]);
 
   return (
-    <div style={{ position: 'relative', width: '100%', maxWidth: 640 }}>
+    <div style={{ position: 'relative' }}>
       <video
         ref={videoRef}
         playsInline
@@ -218,31 +217,12 @@ export default function CameraFeed({
         }}
       />
       {isLoading && (
-        <div style={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          color: 'white',
-          background: 'rgba(0,0,0,0.7)',
-          padding: '1rem',
-          borderRadius: 8
-        }}>
+        <div style={{ textAlign: 'center', padding: '1rem' }}>
           Loading face detection models...
         </div>
       )}
       {error && (
-        <div style={{
-          position: 'absolute',
-          bottom: 10,
-          left: 10,
-          right: 10,
-          color: 'white',
-          background: 'rgba(255,0,0,0.8)',
-          padding: '0.5rem',
-          borderRadius: 8,
-          fontSize: 14
-        }}>
+        <div style={{ color: 'red', textAlign: 'center', padding: '1rem' }}>
           Error: {error}
         </div>
       )}

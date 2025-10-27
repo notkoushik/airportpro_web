@@ -1,6 +1,4 @@
-// src/components/liveness/EnhancedLivenessDetector.tsx
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Camera, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import CameraFeed from '@/components/CameraFeed';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,31 +17,35 @@ export function EnhancedLivenessDetector({ onComplete, onError }: Props) {
   const [faceDetected, setFaceDetected] = useState(false);
   const [detectionCount, setDetectionCount] = useState(0);
   const [message, setMessage] = useState('Initializing face detection...');
-  
+
   const REQUIRED_DETECTIONS = 30; // ~1 second at 30fps
   const LIVENESS_SCORE = 0.85;
+
+  const handleCompletion = useCallback((success: boolean, score?: number) => {
+    onComplete?.(success, score);
+  }, [onComplete]);
 
   useEffect(() => {
     if (state === 'detecting' && faceDetected) {
       setDetectionCount(prev => {
         const newCount = prev + 1;
-        
+
         if (newCount >= REQUIRED_DETECTIONS) {
           setState('success');
           setMessage('Face verified successfully!');
-          onComplete?.(true, LIVENESS_SCORE);
+          handleCompletion(true, LIVENESS_SCORE);
         } else {
           const progress = Math.round((newCount / REQUIRED_DETECTIONS) * 100);
           setMessage(`Hold still... ${progress}%`);
         }
-        
+
         return newCount;
       });
     } else if (state === 'detecting' && !faceDetected) {
       setMessage('Position your face in the frame');
       setDetectionCount(0);
     }
-  }, [faceDetected, state, onComplete]);
+  }, [faceDetected, state, handleCompletion]);
 
   const handleCameraReady = () => {
     setState('detecting');
@@ -61,7 +63,7 @@ export function EnhancedLivenessDetector({ onComplete, onError }: Props) {
   };
 
   return (
-    <div className="max-w-xl mx-auto">
+    <div className="max-w-2xl mx-auto p-4">
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -69,7 +71,7 @@ export function EnhancedLivenessDetector({ onComplete, onError }: Props) {
             Liveness Detection
           </CardTitle>
         </CardHeader>
-        
+
         <CardContent className="space-y-4">
           <Alert variant={state === 'success' ? 'default' : 'default'}>
             <AlertDescription className="flex items-center gap-2">
@@ -81,7 +83,7 @@ export function EnhancedLivenessDetector({ onComplete, onError }: Props) {
               {message}
             </AlertDescription>
           </Alert>
-          
+
           {state !== 'success' && state !== 'failed' && (
             <CameraFeed
               autoStart={true}
@@ -90,17 +92,17 @@ export function EnhancedLivenessDetector({ onComplete, onError }: Props) {
               onError={handleError}
             />
           )}
-          
+
           {state === 'success' && (
-            <div className="text-center py-8">
+            <div className="text-center space-y-4">
               <CheckCircle2 className="h-16 w-16 text-green-600 mx-auto mb-4" />
               <p className="text-lg font-semibold">Liveness Verified!</p>
-              <p className="text-sm text-muted-foreground mt-2">
+              <p className="text-sm text-muted-foreground">
                 Score: {(LIVENESS_SCORE * 100).toFixed(0)}%
               </p>
             </div>
           )}
-          
+
           {state === 'failed' && (
             <Button onClick={() => {
               setState('initializing');
@@ -114,12 +116,3 @@ export function EnhancedLivenessDetector({ onComplete, onError }: Props) {
     </div>
   );
 }
-// ✅ ADD MISSING EXPORT TYPE
-export interface DetectionResult {
-  success: boolean;
-  score?: number;
-  error?: string;
-}
-
-// ✅ ADD DEFAULT EXPORT
-export default EnhancedLivenessDetector;

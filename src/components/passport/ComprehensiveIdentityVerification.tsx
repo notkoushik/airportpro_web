@@ -36,7 +36,7 @@ interface PassportData {
   countryCode: string;
   surname: string;
   givenNames: string;
-  documentNumber: string;
+  passportNumber: string; // Corrected from documentNumber
   dateOfBirth: string; // Correct
   expiryDate: string; // Renamed from expirationDate
   personalNumber?: string; // Made optional to match other definitions
@@ -495,7 +495,7 @@ const ComprehensiveIdentityVerification: React.FC = () => {
                         <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Document Number</span>
                       </div>
                       <p className="text-lg font-mono font-bold text-gray-900 dark:text-white">
-                        {passportData.documentNumber}
+                        {passportData.passportNumber}
                       </p>
                     </div>
                     

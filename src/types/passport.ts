@@ -1,6 +1,3 @@
-// src/types/passport.ts
-// Complete TypeScript interfaces for passport data
-
 export interface MRZLine {
   line1: string;
   line2: string;
@@ -11,28 +8,28 @@ export interface PassportData {
   // Document Type
   documentType: string; // 'P' for passport, 'ID' for ID card
   documentCode: string; // Full code (e.g., 'P<')
-  
+
   // Personal Information
   surname: string;
   givenNames: string;
   fullName: string;
-  
+
   // Document Details
   passportNumber: string;
   nationality: string;
   issuingCountry: string;
-  
+
   // Dates
   dateOfBirth: string; // YYMMDD format
   dateOfBirthFormatted: string; // Human readable
   expiryDate: string; // YYMMDD format
   expiryDateFormatted: string; // Human readable
-  
+
   // Additional Fields
   sex: 'M' | 'F' | 'X' | string;
   personalNumber?: string;
   optionalData?: string;
-  
+
   // Validation
   checksumValid: boolean;
   checksumDetails: {
@@ -42,7 +39,7 @@ export interface PassportData {
     personalNumberValid?: boolean;
     finalValid: boolean;
   };
-  
+
   // Metadata
   rawMRZ: MRZLine;
   parsedAt: Date;

@@ -12,12 +12,26 @@ export interface PassportData {
   personalNumber?: string;
   issueDate?: string;
   issuingState: string;
+  documentType?: string;
+  
+  // NEW: Checksum validation fields
+  checksumValid: boolean;
+  checksumDetails?: {
+    passportNumber: boolean;
+    dateOfBirth: boolean;
+    expiryDate: boolean;
+    personalNumber?: boolean;
+  };
+  
   raw: {
     line1: string;
     line2: string;
     line3?: string;
+    format?: 'TD1' | 'TD2' | 'TD3';
   };
-  photoBase64?: string; // The base64 encoded passport photo
+  
+  confidence?: number;
+  photoBase64?: string;
 }
 
 export interface PassportScanResult {
@@ -25,6 +39,7 @@ export interface PassportScanResult {
   data?: PassportData;
   error?: string;
   confidence?: number;
+  suggestion?: string;
 }
 
 export interface PassportScannerPlugin {
@@ -45,7 +60,10 @@ export interface PassportScannerPlugin {
 }
 
 const PassportScanner = registerPlugin<PassportScannerPlugin>('PassportScanner', {
-  web: () => import('./web').then(m => new m.PassportScannerWeb()),
+  web: async () => {
+    const m = await import('./web');
+    return new m.PassportScannerWeb();
+  },
 });
 
 export default PassportScanner;

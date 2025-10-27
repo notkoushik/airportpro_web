@@ -1,10 +1,6 @@
-// src/components/passport/UnifiedPassportScanner.tsx
-// Main passport scanning UI component
-
 import React, { useState } from 'react';
 import { Camera, Loader2, CheckCircle2, XCircle, RotateCcw, Home } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -15,9 +11,8 @@ import {
 } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-
 import { scanPassport, capturePassportImage } from '@/services/passportScanner';
-import { PassportData, ScanResult as ScanResultType } from '@/types/passport';
+import { PassportData, ScanResult } from '@/types/passport';
 
 interface Props {
   onScanSuccess?: (data: PassportData) => void;
@@ -26,11 +21,9 @@ interface Props {
 
 type ScanState = 'idle' | 'scanning' | 'success' | 'error';
 
-export type ScanResult = ScanResultType;
-
 export function UnifiedPassportScanner({ onScanSuccess, onScanFailure }: Props) {
   const navigate = useNavigate();
-  
+
   const [state, setState] = useState<ScanState>('idle');
   const [passportData, setPassportData] = useState<PassportData | null>(null);
   const [error, setError] = useState<string>('');
@@ -42,10 +35,10 @@ export function UnifiedPassportScanner({ onScanSuccess, onScanFailure }: Props) 
       setState('scanning');
       setProgress(0);
       setStatus('Preparing camera...');
-      
+
       // Capture image from camera
       const imageData = await capturePassportImage();
-      
+
       // Scan passport with progress tracking
       const result: ScanResult = await scanPassport(
         imageData,
@@ -54,7 +47,7 @@ export function UnifiedPassportScanner({ onScanSuccess, onScanFailure }: Props) 
           setStatus(stat);
         }
       );
-      
+
       if (result.success && result.data) {
         setPassportData(result.data);
         setState('success');
@@ -64,7 +57,7 @@ export function UnifiedPassportScanner({ onScanSuccess, onScanFailure }: Props) 
         setState('error');
         onScanFailure?.(result.error || 'Unknown error');
       }
-      
+
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Scanning failed';
       setError(errorMessage);
@@ -97,7 +90,7 @@ export function UnifiedPassportScanner({ onScanSuccess, onScanFailure }: Props) 
             Scan your passport to extract MRZ information
           </CardDescription>
         </CardHeader>
-        
+
         <CardContent className="space-y-4">
           {/* Idle State */}
           {state === 'idle' && (
@@ -113,7 +106,7 @@ export function UnifiedPassportScanner({ onScanSuccess, onScanFailure }: Props) 
                   </ul>
                 </AlertDescription>
               </Alert>
-              
+
               <Button 
                 onClick={handleScan} 
                 className="w-full"
@@ -124,24 +117,24 @@ export function UnifiedPassportScanner({ onScanSuccess, onScanFailure }: Props) 
               </Button>
             </div>
           )}
-          
+
           {/* Scanning State */}
           {state === 'scanning' && (
-            <div className="space-y-4">
-              <div className="flex flex-col items-center justify-center py-8">
+            <div className="text-center space-y-4">
+              <div className="flex flex-col items-center">
                 <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-                <p className="text-sm text-muted-foreground mb-2">{status}</p>
-                <div className="w-full max-w-xs bg-secondary rounded-full h-2">
+                <p className="text-lg font-medium">{status}</p>
+                <div className="w-full bg-gray-200 rounded-full h-2 mt-4">
                   <div 
-                    className="bg-primary h-2 rounded-full transition-all duration-300"
+                    className="bg-primary h-2 rounded-full transition-all" 
                     style={{ width: `${progress}%` }}
                   />
                 </div>
-                <p className="text-xs text-muted-foreground mt-2">{Math.round(progress)}%</p>
+                <p className="text-sm text-muted-foreground mt-2">{Math.round(progress)}%</p>
               </div>
             </div>
           )}
-          
+
           {/* Success State */}
           {state === 'success' && passportData && (
             <div className="space-y-4">
@@ -150,14 +143,14 @@ export function UnifiedPassportScanner({ onScanSuccess, onScanFailure }: Props) 
                 <AlertDescription className="text-green-800">
                   Passport scanned successfully!
                   {!passportData.checksumValid && (
-                    <span className="block mt-1 text-yellow-600 text-sm">
+                    <span className="block mt-1 text-yellow-700">
                       ⚠️ Warning: Checksum validation failed. Data may be inaccurate.
                     </span>
                   )}
                 </AlertDescription>
               </Alert>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-secondary/20 rounded-lg">
+
+              <div className="grid grid-cols-2 gap-3">
                 <InfoField label="Full Name" value={passportData.fullName} />
                 <InfoField label="Nationality" value={passportData.nationality} />
                 <InfoField label="Passport Number" value={passportData.passportNumber} />
@@ -167,16 +160,16 @@ export function UnifiedPassportScanner({ onScanSuccess, onScanFailure }: Props) 
                 <InfoField label="Issuing Country" value={passportData.issuingCountry} />
                 <InfoField label="Document Type" value={passportData.documentType} />
               </div>
-              
+
               {passportData.confidence && (
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">OCR Confidence:</span>
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
+                  <span className="text-sm font-medium">OCR Confidence:</span>
                   <Badge variant={passportData.confidence > 0.8 ? 'default' : 'secondary'}>
                     {(passportData.confidence * 100).toFixed(1)}%
                   </Badge>
                 </div>
               )}
-              
+
               <div className="flex gap-2">
                 <Button onClick={handleGoHome} variant="outline" className="flex-1">
                   <Home className="mr-2 h-4 w-4" />
@@ -189,7 +182,7 @@ export function UnifiedPassportScanner({ onScanSuccess, onScanFailure }: Props) 
               </div>
             </div>
           )}
-          
+
           {/* Error State */}
           {state === 'error' && (
             <div className="space-y-4">
@@ -200,7 +193,7 @@ export function UnifiedPassportScanner({ onScanSuccess, onScanFailure }: Props) 
                   <p className="mt-1">{error}</p>
                 </AlertDescription>
               </Alert>
-              
+
               <Alert>
                 <AlertDescription>
                   <strong>Troubleshooting Tips:</strong>
@@ -213,7 +206,7 @@ export function UnifiedPassportScanner({ onScanSuccess, onScanFailure }: Props) 
                   </ul>
                 </AlertDescription>
               </Alert>
-              
+
               <div className="flex gap-2">
                 <Button onClick={handleGoHome} variant="outline" className="flex-1">
                   <Home className="mr-2 h-4 w-4" />
@@ -235,10 +228,9 @@ export function UnifiedPassportScanner({ onScanSuccess, onScanFailure }: Props) 
 // Helper component for displaying info fields
 function InfoField({ label, value }: { label: string; value: string }) {
   return (
-    <div>
+    <div className="p-3 bg-gray-50 rounded">
       <p className="text-xs text-muted-foreground mb-1">{label}</p>
       <p className="text-sm font-medium">{value}</p>
     </div>
   );
 }
-export default UnifiedPassportScanner;

@@ -457,7 +457,7 @@ const UltimateLivenessDetector: React.FC = () => {
       }
     };
 
-    const interval = setInterval(checkChallenges, 500);
+    const interval: number = window.setInterval(checkChallenges, 500);
     return () => clearInterval(interval);
 
   }, [isDetecting, testPhase, currentDetections]);

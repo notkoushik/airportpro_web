@@ -73,13 +73,13 @@ export default function MLKitCameraFeed({ mode, onResult, onError, autoCapture =
       setIsProcessing(false);
       setStatus('Camera stopped');
     };
-  }, [mode, autoCapture, onError]);
+  }, [mode, autoCapture, onError, getStatusMessage, stream]);
 
   // Detection loop for liveness
   useEffect(() => {
-    if (!detectionActive || mode !== 'liveness' || isProcessing) return;
+    if (!detectionActive || mode !== 'liveness' || isProcessing || !videoRef.current) return;
 
-    let intervalId: NodeJS.Timeout | null = null;
+    let intervalId: number | null = null;
 
     const runCheck = async () => {
       if (!isProcessing && videoRef.current && canvasRef.current && detectionActive) {
