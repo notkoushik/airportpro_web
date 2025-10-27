@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { AirportProPlugins, LivenessResult } from '@/lib/capacitor-plugins';
-
+import { LivenessPluginNative as AirportProPlugins } from '@/lib/capacitor-plugins';
+import { LivenessResult } from '@/lib/liveness-integration';
 interface Props {
   mode: 'liveness' | 'passport' | 'selfie';
   onResult?: (result: any) => void;
