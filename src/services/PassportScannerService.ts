@@ -1,6 +1,7 @@
 
 import { PassportData, MRZLine, MRZParseResult, DocumentType } from '@/types/passport';
 
+
 /**
  * Validates MRZ checksum using check digit algorithm
  * According to ICAO Doc 9303 specifications

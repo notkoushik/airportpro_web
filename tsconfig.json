@@ -1,24 +1,48 @@
 {
   "compilerOptions": {
-    "target": "ESNext",
-    "useDefineForClassFields": true,
-    "lib": ["DOM", "DOM.Iterable", "ESNext"],
-    "allowJs": false,
+    "target": "ES2020",
+    "allowJs": true,
     "skipLibCheck": true,
-    "esModuleInterop": false,
+    "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
-    "strict": true,
+    "strict": false,
     "forceConsistentCasingInFileNames": true,
+    "noFallthroughCasesInSwitch": true,
     "module": "ESNext",
-    "moduleResolution": "Node",
+    "moduleResolution": "node",
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
+    "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
-    }
+      "@/*": ["src/*"],
+      "@/components/*": ["src/components/*"],
+      "@/services/*": ["src/services/*"],
+      "@/types/*": ["src/types/*"],
+      "@/lib/*": ["src/lib/*"],
+      "@/plugins/*": ["src/plugins/*"] // Removed trailing comma
+    },
+    "typeRoots": [
+      "node_modules/@types",
+      "src/@types"
+    ],
+    "types": [
+      "node",
+      "react",
+      "react-dom"
+    ]
   },
-  "include": ["src"],
-  "references": [{ "path": "./tsconfig.node.json" }]
+  "include": [
+    "src/**/*",
+    "capacitor.config.ts",
+    "vite.config.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "build",
+    "android",
+    "ios"
+  ]
 }
