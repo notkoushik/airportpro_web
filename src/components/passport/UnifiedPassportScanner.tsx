@@ -31,40 +31,45 @@ export function UnifiedPassportScanner({ onScanSuccess, onScanFailure }: Props) 
   const [status, setStatus] = useState<string>('');
 
   const handleScan = async () => {
-    try {
-      setState('scanning');
-      setProgress(0);
-      setStatus('Preparing camera...');
-
-      // Capture image from camera
-      const imageData = await capturePassportImage();
-
-      // Scan passport with progress tracking
-      const result: ScanResult = await scanPassport(
-        imageData,
-        (prog, stat) => {
-          setProgress(prog);
-          setStatus(stat);
-        }
-      );
-
-      if (result.success && result.data) {
-        setPassportData(result.data);
-        setState('success');
-        onScanSuccess?.(result.data);
-      } else {
-        setError(result.error || 'Unknown scanning error');
-        setState('error');
-        onScanFailure?.(result.error || 'Unknown error');
+  try {
+    setState('scanning');
+    setProgress(0);
+    setStatus('Preparing camera...');
+    
+    console.log('=== UnifiedPassportScanner: Starting scan ===');
+    
+    // IMPORTANT: This calls the NATIVE scanner
+    const result: ScanResult = await scanPassport(
+      (prog, stat) => {
+        setProgress(prog);
+        setStatus(stat);
+        console.log(`Progress: ${prog}% - ${stat}`);
       }
-
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Scanning failed';
-      setError(errorMessage);
+    );
+    
+    console.log('=== Scan complete ===');
+    console.log('Result:', result);
+    
+    if (result.success && result.data) {
+      setPassportData(result.data);
+      setState('success');
+      onScanSuccess?.(result.data);
+    } else {
+      setError(result.error || 'Unknown scanning error');
       setState('error');
-      onScanFailure?.(errorMessage);
+      onScanFailure?.(result.error || 'Unknown error');
     }
-  };
+    
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : 'Scanning failed';
+    console.error('=== Scan exception ===');
+    console.error(errorMessage);
+    setError(errorMessage);
+    setState('error');
+    onScanFailure?.(errorMessage);
+  }
+};
+
 
   const handleReset = () => {
     setState('idle');

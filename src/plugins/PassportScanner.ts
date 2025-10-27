@@ -1,4 +1,3 @@
-// src/plugins/PassportScanner.ts
 import { registerPlugin } from '@capacitor/core';
 
 export interface PassportData {
@@ -10,11 +9,8 @@ export interface PassportData {
   sex: string;
   expiryDate: string;
   personalNumber?: string;
-  issueDate?: string;
   issuingState: string;
   documentType?: string;
-  
-  // NEW: Checksum validation fields
   checksumValid: boolean;
   checksumDetails?: {
     passportNumber: boolean;
@@ -22,16 +18,13 @@ export interface PassportData {
     expiryDate: boolean;
     personalNumber?: boolean;
   };
-  
   raw: {
     line1: string;
     line2: string;
     line3?: string;
     format?: 'TD1' | 'TD2' | 'TD3';
   };
-  
   confidence?: number;
-  photoBase64?: string;
 }
 
 export interface PassportScanResult {
@@ -40,30 +33,17 @@ export interface PassportScanResult {
   error?: string;
   confidence?: number;
   suggestion?: string;
+  rawLines?: { lines: string };
 }
 
 export interface PassportScannerPlugin {
-  /**
-   * Scan passport MRZ using camera
-   */
   scanPassport(): Promise<PassportScanResult>;
-  
-  /**
-   * Scan passport MRZ from image file
-   */
   scanFromImage(options: { imagePath: string }): Promise<PassportScanResult>;
-  
-  /**
-   * Check if ML Kit models are downloaded
-   */
   checkModelsReady(): Promise<{ ready: boolean }>;
 }
 
 const PassportScanner = registerPlugin<PassportScannerPlugin>('PassportScanner', {
-  web: async () => {
-    const m = await import('./web');
-    return new m.PassportScannerWeb();
-  },
+  web: () => import('./web').then(m => new m.PassportScannerWeb()),
 });
 
 export default PassportScanner;
