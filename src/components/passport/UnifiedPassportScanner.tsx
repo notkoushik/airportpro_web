@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { scanPassport, capturePassportImage } from '@/services/passportScanner';
+import { scanPassport } from '@/services/passportScanner'
 import { PassportData, ScanResult } from '@/types/passport';
 
 interface Props {
@@ -39,13 +39,7 @@ export function UnifiedPassportScanner({ onScanSuccess, onScanFailure }: Props) 
     console.log('=== UnifiedPassportScanner: Starting scan ===');
     
     // IMPORTANT: This calls the NATIVE scanner
-    const result: ScanResult = await scanPassport(
-      (prog, stat) => {
-        setProgress(prog);
-        setStatus(stat);
-        console.log(`Progress: ${prog}% - ${stat}`);
-      }
-    );
+    const result: ScanResult = await scanPassport();
     
     console.log('=== Scan complete ===');
     console.log('Result:', result);
