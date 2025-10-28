@@ -61,12 +61,27 @@ public class PassportScannerPlugin extends Plugin {
         OCR_CORRECTIONS.put('B', '8');
     }
 
+    // --- START: NEWLY ADDED load() METHOD ---
     @Override
     public void load() {
-        textRecognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS);
-        cameraExecutor = Executors.newSingleThreadExecutor();
-        Log.d(TAG, "PassportScanner Plugin loaded successfully");
+        Log.d(TAG, "===========================================");
+        Log.d(TAG, "🔥 PassportScanner Plugin load() CALLED"); // Highlighted log
+        Log.d(TAG, "===========================================");
+
+        try {
+            textRecognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS);
+            cameraExecutor = Executors.newSingleThreadExecutor();
+
+            Log.d(TAG, "✓ ML Kit Text Recognizer initialized");
+            Log.d(TAG, "✓ Camera executor created");
+            Log.d(TAG, "✓✓✓ PassportScanner Plugin LOADED SUCCESSFULLY ✓✓✓"); // Success log
+            Log.d(TAG, "===========================================");
+
+        } catch (Exception e) {
+            Log.e(TAG, "✗✗✗ PassportScanner Plugin FAILED TO LOAD", e); // Failure log
+        }
     }
+    // --- END: NEWLY ADDED load() METHOD ---
 
     @PluginMethod
     public void scanPassport(PluginCall call) {
@@ -515,7 +530,6 @@ public class PassportScannerPlugin extends Plugin {
         return candidates;
     }
 
-    // --- START: UPDATED splitConcatenatedMRZ METHOD ---
     private List<String> splitConcatenatedMRZ(String concatenated) {
         List<String> lines = new ArrayList<>();
 
@@ -543,7 +557,6 @@ public class PassportScannerPlugin extends Plugin {
 
         return lines;
     }
-    // --- END: UPDATED splitConcatenatedMRZ METHOD ---
 
     private String cleanMRZText(String text) {
         StringBuilder cleaned = new StringBuilder();
