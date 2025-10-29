@@ -19,7 +19,6 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          'tesseract-vendor': ['tesseract.js'],
           'react-vendor': ['react', 'react-dom', 'react/jsx-runtime']
         }
       }
@@ -30,7 +29,6 @@ export default defineConfig({
       'react', 
       'react-dom', 
       'react/jsx-runtime',
-      'tesseract.js'
     ],
     esbuildOptions: {
       target: 'esnext'

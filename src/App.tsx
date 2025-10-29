@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 // Core Pages (Keep these as regular imports for better UX)
 import Home from './pages/Home';
 import NotFound from './pages/NotFound';
-import UltimateLivenessDetector from './components/liveness/UltimateLivenessDetector';
+
 
 import { defineCustomElements } from '@ionic/pwa-elements/loader';
 defineCustomElements(window);
@@ -143,10 +143,7 @@ const App: React.FC = () => {
           } 
         />
         
-        <Route 
-          path="/liveness-test" 
-          element={<UltimateLivenessDetector />} 
-        />
+        
         
         <Route 
           path="/boarding-pass" 
