@@ -1,5 +1,4 @@
-package com.airportpro.app;
-
+import com.airportpro.app.PassportScannerPlugin;
 import android.os.Bundle;
 import android.util.Log;
 import com.getcapacitor.BridgeActivity;

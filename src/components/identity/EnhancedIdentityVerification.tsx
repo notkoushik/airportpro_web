@@ -20,7 +20,7 @@ import type { PassportData } from '@/types/passport';
 
 // ✅ FIXED: Import named exports correctly
 import { UnifiedPassportScanner } from '../passport/UnifiedPassportScanner';
-import { EnhancedLivenessDetector } from '../liveness/EnhancedLivenessDetector';
+
 import type { ScanResult } from '../passport/UnifiedPassportScanner';
 
 // ✅ FIXED: Define DetectionResult locally if not exported
@@ -173,15 +173,15 @@ const EnhancedIdentityVerification: React.FC = () => {
     />
   );
 
-  const renderLivenessStep = () => (
-    <EnhancedLivenessDetector 
-      onComplete={(success, score) => {
-        if (success) {
-          handleLivenessSuccess();
-        }
-      }}
-    />
-  );
+// return <EnhancedLivenessDetector onLivenessSuccess={onLivenessSuccess} />;
+    // <EnhancedLivenessDetector 
+    //   onComplete={(success, score) => {
+    //     if (success) {
+    //       handleLivenessSuccess();
+    //     }
+    //   }}
+    // />
+  // );
 
   const renderNFCStep = () => (
     <div className="space-y-6">

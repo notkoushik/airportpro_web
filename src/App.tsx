@@ -13,24 +13,34 @@ import { defineCustomElements } from '@ionic/pwa-elements/loader';
 defineCustomElements(window);
 
 // Lazy load secondary pages for better performance
+// Lazy load secondary pages for better performance
+// ==============================================================================
+// PASTE THIS NEW, CORRECTED BLOCK
+// ==============================================================================
+// Lazy load secondary pages for better performance
+// In src/App.tsx, replace all your lazy imports with this:
+
+// In src/App.tsx, replace all your lazy imports with this pattern:
+
 const Flights = lazy(() => import('./pages/Flights'));
 const BoardingPass = lazy(() => import('./pages/BoardingPass'));
 const WaitTimes = lazy(() => import('./pages/WaitTimes'));
 const Map = lazy(() => import('./pages/Map'));
 const More = lazy(() => import('./pages/More'));
+const SmartPathEnroll = lazy(() => import('./pages/SmartPathEnroll'));
+const EnhancedSmartPathEnroll = lazy(() => import('./pages/EnhancedSmartPathEnroll'));
+// Keep UnifiedPassportScanner as a direct import since it's used directly
+import { UnifiedPassportScanner } from './components/passport/UnifiedPassportScanner';
+// If LoadingSpinner is used, ensure it's imported correctly
+import LoadingSpinner from './components/core/LoadingSpinner'; // Assuming path
+// If PageTransition is used, ensure it's imported correctly
+import PageTransition from './components/core/PageTransition'; // Assuming path
+// If RouteGuard is used, ensure it's imported correctly
+import RouteGuard from './components/core/RouteGuard'; // Assuming path
+// If ComprehensiveIdentityVerification is used, import it correctly
+const ComprehensiveIdentityVerification = lazy(() => import('./components/passport/ComprehensiveIdentityVerification'));
 
-// ✅ FIXED: Import with default export wrapper
-const UnifiedPassportScanner = lazy(() => 
-  import('@/components/passport/UnifiedPassportScanner').then(module => ({
-    default: module.default
-  }))
-);
-
-const ComprehensiveIdentityVerification = lazy(() => 
-  import('@/components/passport/ComprehensiveIdentityVerification').then(module => ({
-    default: module.default
-  }))
-);
+// ... rest of your App.tsx component
 
 // ==============================================================================
 // LOADING COMPONENT
