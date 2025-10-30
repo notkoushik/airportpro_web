@@ -1,25 +1,29 @@
-import com.airportpro.app.PassportScannerPlugin;
+package com.airportpro.app;
+
 import android.os.Bundle;
 import android.util.Log;
 import com.getcapacitor.BridgeActivity;
+// --- FIX: Ensure only one import for the plugin ---
 import com.airportpro.app.PassportScannerPlugin;
+import java.util.ArrayList;
+// --- END FIX ---
+import idpass.smartscanner.SmartScannerPlugin;
 
 public class MainActivity extends BridgeActivity {
-    
+
     private static final String TAG = "MainActivity";
     
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        
-        Log.d(TAG, "===========================================");
-        Log.d(TAG, "MainActivity onCreate - Registering plugins");
-        Log.d(TAG, "===========================================");
-        
-        // CRITICAL: Register PassportScanner plugin
+        // Register plugins BEFORE calling super.onCreate()
+        Log.d(TAG, "Registering plugins in MainActivity onCreate...");
         registerPlugin(PassportScannerPlugin.class);
-        
-        Log.d(TAG, "✓ PassportScanner plugin registered");
-        Log.d(TAG, "===========================================");
+        Log.d(TAG, "✓ PassportScanner plugin registered.");
+        registerPlugin(SmartScannerPlugin.class);
+        // Now call the parent constructor AFTER registration
+        super.onCreate(savedInstanceState);
+        Log.d(TAG, "MainActivity onCreate completed.");
+       
     }
 }

@@ -11,7 +11,7 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        // For plugins that are hosted on JitPack
+        // We'll keep JitPack for any other dependencies, just in case
         maven { url 'https://jitpack.io' }
 
         // Node.js repository for node-gradle plugin
@@ -37,6 +37,10 @@ dependencyResolutionManagement {
 
 include ':app'
 include ':capacitor-cordova-android-plugins'
-project(':capacitor-cordova-android-plugins').projectDir = new File('./capacitor-cordova-android-plugins/')
+project(':capacitor-cordova-android-plugins').projectDir = new File('./capacitor-cordova-android-plugins')
+
+// --- ADD THESE TWO LINES ---
+
+// --- END OF ADDITION ---
 
 apply from: 'capacitor.settings.gradle'

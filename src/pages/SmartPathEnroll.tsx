@@ -7,25 +7,14 @@ import { ArrowLeft, Camera, Scan, User, CheckCircle } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import MRZScanLauncher from "@/components/identity/MRZScanLauncher";
-import PassportScanner, { PassportData } from "@/plugins/PassportScanner";
+import { SmartScannerPlugin } from '@idpass/smartscanner-capacitor';
 
-type MRZData = {
-  firstName?: string;
-  lastName?: string;
-  givenName?: string;
-  givenNames?: string;
-  surname?: string;
-  nationality?: string;
-  documentNumber?: string;
-  docNumber?: string;
-  dateOfExpiry?: { text?: string } | string;
-  expiry?: string;
-};
+// Assuming PassportData is defined in src/types/passport.ts
+import type { PassportData } from '@/types/passport';
 
 export default function SmartPathEnroll() {
   const [currentStep, setCurrentStep] = useState(0);
-  const [showScanner, setShowScanner] = useState(false);
-  const [mrzData, setMrzData] = useState<MRZData | null>(null);
+  // Removed showScanner and mrzData as MRZScanLauncher is no longer used
   const [isTakingPhoto, setIsTakingPhoto] = useState(false);
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -33,14 +22,13 @@ export default function SmartPathEnroll() {
 
   // --- ADDED/MODIFIED LINES ---
   const [passportData, setPassportData] = useState<PassportData | null>(null);
-  const [scanError, setScanError] = useState<string>("");
   const [isScanning, setIsScanning] = useState(false);
+  const [scanError, setScanError] = useState<string>(""); // Added missing state
   // --------------------------
 
   const steps = [
     { id: "intro", title: "Enrollment Instructions", icon: User },
     { id: "passport", title: "Scan Your Passport", icon: Scan },
-    { id: "position", title: "Position Your Passport", icon: Scan },
     { id: "details", title: "Passport Details", icon: CheckCircle },
     { id: "selfie", title: "Take a Selfie", icon: Camera },
     { id: "complete", title: "Enrollment Complete", icon: CheckCircle },
@@ -51,7 +39,7 @@ export default function SmartPathEnroll() {
     if (searchParams.get("autoOpen") === "1") {
       const passportIndex = steps.findIndex((s) => s.id === "passport");
       if (passportIndex !== -1) setCurrentStep(passportIndex);
-      setShowScanner(true);
+      // The scanner will be opened directly by the button click in the 'passport' step
     }
     if (searchParams.get("step") === "selfie") {
       const selfieIndex = steps.findIndex((s) => s.id === "selfie");
@@ -72,8 +60,6 @@ export default function SmartPathEnroll() {
     }
   };
 
-  const openScanner = () => setShowScanner(true);
-
   const handleTakePhoto = () => {
     setIsTakingPhoto(true);
     setTimeout(() => {
@@ -82,29 +68,61 @@ export default function SmartPathEnroll() {
     }, 1500);
   };
 
-  // --- THIS IS YOUR NEW FUNCTION ---
-  const handleScanPassport = async () => {
+  // --- NEW COMBINED SCAN FUNCTION ---
+  const startCombinedPassportScan = async () => {
     setIsScanning(true);
-    setScanError("");
+    setScanError(""); // Clear previous errors
 
     try {
-      const result = await PassportScanner.scanPassport();
+      // Step 1: MRZ Scan
+      toast({
+        title: "Scanning Passport MRZ",
+        description: "Please align your passport in the camera frame.",
+      });
+      const mrzResult = await SmartScannerPlugin.executeScanner({
+        action: 'START_SCANNER',
+        options: {
+          mode: 'mrz', // This tells it to look for a passport
+          mrzFormat: 'MRTD_TD3', // Standard passport format
+        },
+      });
 
-      if (result.success && result.data) {
-        setPassportData(result.data);
+      if (!mrzResult || !mrzResult.data) {
+        throw new Error(mrzResult?.error || 'MRZ scan failed or returned no data.');
+      }
+
+      console.log('MRZ Scan Complete:', mrzResult.data);
+      const mrzData = mrzResult.data; // This contains MRZ fields
+
+      // Step 2: NFC Read
+      toast({
+        title: "Reading Passport Chip",
+        description: "Hold your passport firmly against the back of your phone.",
+      });
+      const nfcResult = await SmartScannerPlugin.executeScanner({
+        action: 'READ_NFC',
+        options: {
+          mrz: mrzData, // Pass the MRZ data to the NFC reader
+        },
+      });
+
+      if (!nfcResult || !nfcResult.data) {
+        throw new Error(nfcResult?.error || 'NFC read failed or returned no data.');
+      }
+
+      console.log('NFC Read Complete:', nfcResult.data);
+      const fullPassportData = nfcResult.data; // This should contain all passport info including photo
+
+      // Map SmartScannerPlugin's result to your PassportData type
+      setPassportData({
+        ...fullPassportData, // Assuming SmartScannerPlugin returns compatible fields
+        photoBase64: fullPassportData.image, // Map 'image' from plugin to 'photoBase64'
+      });
         toast({
           title: "Passport Scanned Successfully!",
-          description: `Welcome, ${result.data.givenNames} ${result.data.surname}`,
+          description: `Welcome, ${fullPassportData.givenNames} ${fullPassportData.surname}`,
         });
         handleNext();
-      } else {
-        setScanError(result.error || "Failed to scan passport");
-        toast({
-          title: "Scan Failed",
-          description: result.error || "Please try again",
-          variant: "destructive",
-        });
-      }
     } catch (error) {
       // Cast error to get message
       const e = error as Error;
@@ -118,33 +136,7 @@ export default function SmartPathEnroll() {
       setIsScanning(false);
     }
   };
-  // -------------------------------
-
-  // This logic is now handled by the new 'details' step, but we keep it
-  // as a fallback for the MRZ-only flow.
-  const displayName = (() => {
-    if (passportData) {
-      return `${passportData.givenNames} ${passportData.surname}`;
-    }
-    if (mrzData) {
-      const first = mrzData.firstName || mrzData.givenName || mrzData.givenNames || "";
-      const last = mrzData.lastName || mrzData.surname || "";
-      return `${first} ${last}`.trim() || "John Doe";
-    }
-    return "John Doe";
-  })();
-
-  const passportNumber =
-    passportData?.documentNumber ||
-    mrzData?.documentNumber ||
-    mrzData?.docNumber ||
-    "123456789";
-
-  const expiry =
-    passportData?.expiryDate ||
-    (typeof mrzData?.dateOfExpiry === "string"
-      ? mrzData.dateOfExpiry
-      : mrzData?.dateOfExpiry?.text || mrzData?.expiry || "12/2030");
+  // --- END NEW COMBINED SCAN FUNCTION ---
 
   const renderStepContent = () => {
     switch (steps[currentStep].id) {
@@ -166,7 +158,7 @@ export default function SmartPathEnroll() {
                     <div className="flex-1 space-y-1">
                       <p className="font-medium">Scan your passport</p>
                       <p className="text-sm text-muted-foreground">
-                        We’ll capture the Machine Readable Zone (MRZ) at the bottom.
+                        We’ll capture the Machine Readable Zone (MRZ) and read the chip.
                       </p>
                     </div>
                   </div>
@@ -217,7 +209,7 @@ export default function SmartPathEnroll() {
               <Scan className="h-16 w-16 mx-auto text-primary" />
               <h2 className="text-xl font-semibold">Scan your passport</h2>
               <p className="text-muted-foreground">
-                When the camera opens, align the MRZ (the two lines at the bottom) inside the frame.
+                Tap the button below to open the scanner. It will first scan the MRZ, then prompt you to hold your passport to the phone for NFC reading.
               </p>
             </div>
 
@@ -227,56 +219,14 @@ export default function SmartPathEnroll() {
                   <Scan className="h-8 w-8 text-primary" />
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Tap the button below to open the scanner. Grant camera permission if asked.
+                  Grant camera and NFC permissions if asked.
                 </p>
               </div>
             </div>
 
-            <Button onClick={openScanner} className="w-full bg-primary hover:bg-primary/90">
-              OPEN PASSPORT SCANNER
+            <Button onClick={startCombinedPassportScan} disabled={isScanning} className="w-full bg-primary hover:bg-primary/90">
+              {isScanning ? "Scanning... Hold Still..." : "OPEN PASSPORT SCANNER"}
             </Button>
-
-            {showScanner && (
-              <MRZScanLauncher
-                onResult={(res: any) => {
-                  const data: MRZData | undefined = res?.data;
-                  if (data) setMrzData(data);
-                  setShowScanner(false);
-                  // --- MODIFIED: Go to 'position' step next, not 'details' ---
-                  const positionIndex = steps.findIndex((s) => s.id === "position");
-                  setCurrentStep(positionIndex >= 0 ? positionIndex : currentStep + 1);
-                }}
-                onClose={() => setShowScanner(false)}
-              />
-            )}
-          </div>
-        );
-
-      case "position":
-        return (
-          <div className="space-y-6">
-            <div className="text-center space-y-4">
-              <div className="p-4 bg-primary/10 rounded-lg mx-auto w-fit">
-                <Scan className="h-8 w-8 text-primary" />
-              </div>
-              <h2 className="text-xl font-semibold">Position your passport</h2>
-              <p className="text-muted-foreground">
-                Touch OK and then hold your passport firmly against the back of your smartphone to read the
-                passport’s chip (if supported).
-              </p>
-            </div>
-
-            <Button
-              onClick={handleScanPassport}
-              disabled={isScanning}
-              className="w-full bg-primary hover:bg-primary/90"
-            >
-              {isScanning ? "Scanning... Hold Still..." : "OK"}
-            </Button>
-
-            {scanError && (
-              <p className="text-center text-sm text-destructive">{scanError}</p>
-            )}
           </div>
         );
 
@@ -325,7 +275,7 @@ export default function SmartPathEnroll() {
                   <div className="grid grid-cols-2 gap-3 pt-4">
                      <Button
                         variant="outline"
-                        onClick={() => setCurrentStep(steps.findIndex((s) => s.id === "position"))}
+                        onClick={() => setCurrentStep(steps.findIndex((s) => s.id === "passport"))}
                      >
                         Back
                      </Button>
@@ -340,7 +290,7 @@ export default function SmartPathEnroll() {
                     <p className="text-muted-foreground">No passport data read from the chip.</p>
                     <Button
                         variant="outline"
-                        onClick={() => setCurrentStep(steps.findIndex((s) => s.id === "position"))}
+                        onClick={() => setCurrentStep(steps.findIndex((s) => s.id === "passport"))}
                      >
                         Try Scan Again
                      </Button>

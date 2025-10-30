@@ -6,19 +6,18 @@ buildscript {
     dependencies {
         classpath 'com.android.tools.build:gradle:8.2.1'
         classpath 'com.google.gms:google-services:4.4.0'
+        // Add other classpath dependencies if needed
     }
 }
 
-// CRITICAL: Load variables.gradle
 apply from: "variables.gradle"
 
 allprojects {
     repositories {
         google()
         mavenCentral()
+        maven { url 'https://jitpack.io' } // Keep this from the previous step
     }
 }
 
-task clean(type: Delete) {
-    delete rootProject.buildDir
-}
+// The 'task clean(...)' block that was here is now DELETED.

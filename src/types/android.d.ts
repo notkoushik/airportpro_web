@@ -51,6 +51,22 @@ declare module "@capacitor/core" {
         error?: string;
       }>;
     };
+
+    // SmartScanner Plugin (NEW)
+    SmartScannerPlugin: {
+      executeScanner(options: {
+        action: 'START_SCANNER' | 'READ_NFC';
+        options: {
+          mode?: 'mrz';
+          mrzFormat?: 'MRTD_TD3';
+          mrz?: any; // MRZ data from previous scan for NFC
+        };
+      }): Promise<{
+        success: boolean;
+        data?: any; // This 'any' should ideally be a more specific type based on plugin docs
+        error?: string;
+      }>;
+    };
   }
 }
 

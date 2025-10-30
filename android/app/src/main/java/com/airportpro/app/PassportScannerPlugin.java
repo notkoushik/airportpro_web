@@ -11,11 +11,14 @@ import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
-// IMPORT REMOVED: import com.getcapacitor.annotation.ActivityResultCallback;
+// --- FIX: Add required annotation imports ---
+import com.getcapacitor.annotation.ActivityCallback;
+import com.getcapacitor.annotation.PermissionCallback;
+// --- END FIX ---
 import com.getcapacitor.annotation.CapacitorPlugin;
 import com.getcapacitor.annotation.Permission;
 
-import org.json.JSONException;
+import org.json.JSONException; // Keep this if JSObject parsing is needed later
 
 @CapacitorPlugin(
     name = "PassportScanner",
@@ -34,49 +37,67 @@ public class PassportScannerPlugin extends Plugin {
 
     @PluginMethod
     public void scanPassport(PluginCall call) {
+        // Retain the call to use it in the callback
+        bridge.saveCall(call);
+
         if (!hasRequiredPermissions()) {
+            // Request permissions, referencing the callback method name
             requestAllPermissions(call, "cameraPermissionCallback");
         } else {
+            // Already have permission, launch scanner directly
             launchScanner(call);
         }
     }
 
     /**
-     * This method is called after the user grants or denies camera permission.
+     * --- FIX: Use @PermissionCallback ---
+     * Handles the result of the permission request.
      */
-    @PluginMethod // This was missing the annotation, but let's add it for consistency
-    public void cameraPermissionCallback(PluginCall call) {
+    @PermissionCallback
+    private void cameraPermissionCallback(PluginCall call) { // The call might be null if bridge cleared it, retrieve if needed
+        PluginCall savedCall = bridge.getSavedCall(call.getCallbackId()); // Retrieve the saved call
+         if (savedCall == null) {
+             Log.e(TAG, "Saved PluginCall was null in cameraPermissionCallback");
+             // Can't proceed without the original call context
+             return;
+         }
         if (hasRequiredPermissions()) {
-            launchScanner(call);
+            launchScanner(savedCall); // Use the retrieved call
         } else {
-            call.reject("Camera permission is required to scan passports.");
+            savedCall.reject("Camera permission is required to scan passports.");
+            bridge.releaseCall(savedCall); // Clean up the saved call
         }
+        // Don't release the call here if launchScanner is called, it needs it for startActivityForResult
     }
+    // --- END FIX ---
 
     /**
-     * Launches the PassportScanningActivity to start the camera and analysis.
+     * Launches the PassportScanningActivity.
      */
     private void launchScanner(PluginCall call) {
         Intent intent = new Intent(getContext(), PassportScanningActivity.class);
+        // Use the name matching the @ActivityCallback method
         startActivityForResult(call, intent, "scanResultCallback");
     }
 
     /**
-     * This method is called when PassportScanningActivity finishes.
+     * --- FIX: Use @ActivityCallback ---
+     * Handles the result returned from PassportScanningActivity.
      */
-    @PluginMethod // <-- THIS IS THE FIX (was @ActivityResultCallback)
-    public void scanResultCallback(PluginCall call, ActivityResult result) {
+    @ActivityCallback
+    private void scanResultCallback(PluginCall call, ActivityResult result) { // Can be private
+        // Note: 'call' here IS the original call saved by startActivityForResult
         if (call == null) {
             Log.e(TAG, "PluginCall was null in scanResultCallback");
-            return;
+            return; // Should not happen if called via startActivityForResult
         }
 
         if (result.getResultCode() == Activity.RESULT_OK) {
-            // Scan was successful
             Intent data = result.getData();
             if (data != null && data.hasExtra("scanResult")) {
                 String resultJson = data.getStringExtra("scanResult");
                 try {
+                    // Directly resolve with the JSObject parsed from JSON string
                     JSObject resultObj = new JSObject(resultJson);
                     call.resolve(resultObj);
                 } catch (JSONException e) {
@@ -95,7 +116,9 @@ public class PassportScannerPlugin extends Plugin {
                 call.reject("Scan canceled by user.");
             }
         }
+        // No need to release call here, Capacitor handles it after resolve/reject
     }
+    // --- END FIX ---
 
     @PluginMethod
     public void checkModelsReady(PluginCall call) {
