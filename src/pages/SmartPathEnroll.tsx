@@ -7,8 +7,11 @@ import { ArrowLeft, Camera, Scan, User, CheckCircle } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import MRZScanLauncher from "@/components/identity/MRZScanLauncher";
-import { SmartScannerPlugin } from '@idpass/smartscanner-capacitor';
+import { registerPlugin } from '@capacitor/core';
+import type { SmartScannerPlugin } from '@idpass/smartscanner-capacitor';
 
+// Use Capacitor's standard plugin registration
+const SmartScanner = registerPlugin<SmartScannerPlugin>('SmartScanner');
 // Assuming PassportData is defined in src/types/passport.ts
 import type { PassportData } from '@/types/passport';
 
@@ -26,13 +29,14 @@ export default function SmartPathEnroll() {
   const [scanError, setScanError] = useState<string>(""); // Added missing state
   // --------------------------
 
-  const steps = [
+  type Step = { id: 'intro'|'passport'|'details'|'selfie'|'complete'; title: string; icon: any };
+  const steps: Step[] = [
     { id: "intro", title: "Enrollment Instructions", icon: User },
     { id: "passport", title: "Scan Your Passport", icon: Scan },
     { id: "details", title: "Passport Details", icon: CheckCircle },
     { id: "selfie", title: "Take a Selfie", icon: Camera },
     { id: "complete", title: "Enrollment Complete", icon: CheckCircle },
-  ] as const;
+  ];
 
   // Auto-jump/open from ?autoOpen=1 or deep link to ?step=selfie
   useEffect(() => {
@@ -68,75 +72,49 @@ export default function SmartPathEnroll() {
     }, 1500);
   };
 
-  // --- NEW COMBINED SCAN FUNCTION ---
-  const startCombinedPassportScan = async () => {
+  // Inside your SmartPathEnroll.tsx component
+  const handleScanClick = async () => {
+    setScanError(""); // Clear any old errors
     setIsScanning(true);
-    setScanError(""); // Clear previous errors
 
     try {
-      // Step 1: MRZ Scan
-      toast({
-        title: "Scanning Passport MRZ",
-        description: "Please align your passport in the camera frame.",
-      });
-      const mrzResult = await SmartScannerPlugin.executeScanner({
+      // 0) (once) request camera + nfc
+      // @ts-ignore – depending on plugin typings
+      await SmartScanner.requestPermissions?.({ permissions: ['camera', 'nfc'] });
+
+      // 1) MRZ
+      const mrzResult = await SmartScanner.executeScanner({
         action: 'START_SCANNER',
-        options: {
-          mode: 'mrz', // This tells it to look for a passport
-          mrzFormat: 'MRTD_TD3', // Standard passport format
-        },
+        options: { mode: 'mrz', mrzFormat: 'MRTD_TD3' },
       });
 
-      if (!mrzResult || !mrzResult.data) {
-        throw new Error(mrzResult?.error || 'MRZ scan failed or returned no data.');
+      // @ts-ignore
+      if (mrzResult?.status === 'CANCELED' || mrzResult?.cancelled) {
+        throw new globalThis.Error('MRZ scan canceled by user');
       }
+      if (!mrzResult?.data) throw new globalThis.Error(mrzResult?.error || 'MRZ scan failed');
 
-      console.log('MRZ Scan Complete:', mrzResult.data);
-      const mrzData = mrzResult.data; // This contains MRZ fields
-
-      // Step 2: NFC Read
-      toast({
-        title: "Reading Passport Chip",
-        description: "Hold your passport firmly against the back of your phone.",
-      });
-      const nfcResult = await SmartScannerPlugin.executeScanner({
+      // 2) NFC
+      const nfcResult = await SmartScanner.executeScanner({
         action: 'READ_NFC',
-        options: {
-          mrz: mrzData, // Pass the MRZ data to the NFC reader
-        },
+        options: { mrz: mrzResult.data },
       });
-
-      if (!nfcResult || !nfcResult.data) {
-        throw new Error(nfcResult?.error || 'NFC read failed or returned no data.');
+ 
+      // @ts-ignore
+      if (nfcResult?.status === 'CANCELED' || nfcResult?.cancelled) {
+        throw new globalThis.Error('NFC scan canceled by user');
       }
+      if (!nfcResult?.data) throw new globalThis.Error(nfcResult?.error || 'NFC scan failed');
 
-      console.log('NFC Read Complete:', nfcResult.data);
-      const fullPassportData = nfcResult.data; // This should contain all passport info including photo
-
-      // Map SmartScannerPlugin's result to your PassportData type
-      setPassportData({
-        ...fullPassportData, // Assuming SmartScannerPlugin returns compatible fields
-        photoBase64: fullPassportData.image, // Map 'image' from plugin to 'photoBase64'
-      });
-        toast({
-          title: "Passport Scanned Successfully!",
-          description: `Welcome, ${fullPassportData.givenNames} ${fullPassportData.surname}`,
-        });
-        handleNext();
-    } catch (error) {
-      // Cast error to get message
-      const e = error as Error;
-      setScanError(`Error: ${e.message}`);
-      toast({
-        title: "Scan Error",
-        description: e.message || "An unknown error occurred.",
-        variant: "destructive",
-      });
+      setPassportData(nfcResult.data);
+      handleNext();
+    } catch (e:any) {
+      setScanError(e.message ?? 'Scan failed');
+      toast({ title: "Scan Failed", description: e.message ?? 'Scan failed', variant: "destructive" });
     } finally {
       setIsScanning(false);
     }
   };
-  // --- END NEW COMBINED SCAN FUNCTION ---
 
   const renderStepContent = () => {
     switch (steps[currentStep].id) {
@@ -224,9 +202,10 @@ export default function SmartPathEnroll() {
               </div>
             </div>
 
-            <Button onClick={startCombinedPassportScan} disabled={isScanning} className="w-full bg-primary hover:bg-primary/90">
-              {isScanning ? "Scanning... Hold Still..." : "OPEN PASSPORT SCANNER"}
+            <Button onClick={handleScanClick} disabled={isScanning} className="w-full bg-primary hover:bg-primary/90">
+              {isScanning ? "Scanning..." : "Start Passport Scan"}
             </Button>
+            {scanError && <p className="text-center text-sm text-red-500">{scanError}</p>}
           </div>
         );
 
@@ -255,19 +234,19 @@ export default function SmartPathEnroll() {
                   </h3>
                   <dl className="space-y-2 text-sm">
                     <div className="flex justify-between">
-                      <dt className="text-muted-foreground">Nationality:</dt>
+                      <dt className="text-muted-foreground">Nationality</dt>
                       <dd className="font-medium">{passportData.nationality}</dd>
                     </div>
                     <div className="flex justify-between">
-                      <dt className="text-muted-foreground">Passport:</dt>
+                      <dt className="text-muted-foreground">Passport No.</dt>
                       <dd className="font-medium">{passportData.documentNumber}</dd>
                     </div>
                     <div className="flex justify-between">
-                      <dt className="text-muted-foreground">DOB:</dt>
+                      <dt className="text-muted-foreground">Date of Birth</dt>
                       <dd className="font-medium">{passportData.dateOfBirth}</dd>
                     </div>
                     <div className="flex justify-between">
-                      <dt className="text-muted-foreground">Expiry:</dt>
+                      <dt className="text-muted-foreground">Expiry Date</dt>
                       <dd className="font-medium">{passportData.expiryDate}</dd>
                     </div>
                   </dl>
@@ -375,7 +354,7 @@ export default function SmartPathEnroll() {
 
         {/* Stepper */}
         <div className="px-4 pb-4">
-          <div className="grid grid-cols-6 gap-2">
+          <div className="grid grid-cols-5 gap-2">
             {steps.map((_, index) => (
               <div key={index} className={`h-2 rounded-full ${index <= currentStep ? "bg-primary" : "bg-muted"}`} />
             ))}

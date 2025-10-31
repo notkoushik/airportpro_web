@@ -15,43 +15,6 @@ declare module "@capacitor/core" {
       }>;
     };
 
-    // Passport Scanner Plugin
-    PassportScannerPlugin: {
-      scanPassportMRZ(options: { imageData: string }): Promise<{
-        success: boolean;
-        data?: any;
-        confidence?: number;
-        rawText?: string;
-        error?: string;
-        suggestions?: string[];
-      }>;
-      preprocessImage(options: { imageData: string }): Promise<{
-        success: boolean;
-        processedImage: string;
-      }>;
-    };
-
-    // NFC Passport Reader Plugin
-    NFCPassportReaderPlugin: {
-      readNFCPassport(options: {
-        documentNumber: string;
-        dateOfBirth: string;
-        dateOfExpiry: string;
-      }): Promise<{
-        success: boolean;
-        data?: any;
-        readingTime?: number;
-        timestamp?: number;
-        error?: string;
-      }>;
-      checkNFCSupport(): Promise<{
-        supported: boolean;
-        enabled: boolean;
-        available: boolean;
-        error?: string;
-      }>;
-    };
-
     // SmartScanner Plugin (NEW)
     SmartScannerPlugin: {
       executeScanner(options: {

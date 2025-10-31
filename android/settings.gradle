@@ -15,6 +15,9 @@ dependencyResolutionManagement {
         maven { url 'https://jitpack.io' }
 
         // Node.js repository for node-gradle plugin
+        maven {
+            url 'https://www.idpass.io/maven/idpass-smartscanner'
+        }
         ivy {
             name = "Node.js"
             setUrl("https://nodejs.org/dist/")
@@ -40,7 +43,8 @@ include ':capacitor-cordova-android-plugins'
 project(':capacitor-cordova-android-plugins').projectDir = new File('./capacitor-cordova-android-plugins')
 
 // --- ADD THESE TWO LINES ---
-
+include ':idpass-smartscanner-capacitor'
+project(':idpass-smartscanner-capacitor').projectDir = new File('../node_modules/@idpass/smartscanner-capacitor/android')
 // --- END OF ADDITION ---
 
 apply from: 'capacitor.settings.gradle'
