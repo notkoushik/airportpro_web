@@ -1,9 +1,26 @@
-import type { CapacitorConfig } from '@capacitor/cli';
+import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.example.app',
-  appName: 'airportpro-web',
-  webDir: 'dist'
+  appId: 'com.airportpro.app',
+  appName: 'AirportPro',
+  webDir: 'dist',
+  
+  server: {
+    androidScheme: 'https',
+    cleartext: true
+  },
+  
+  android: {
+    allowMixedContent: true,
+    loggingBehavior: 'debug'
+  },
+  
+  plugins: {
+    Camera: {
+      permissions: ["camera", "photos"]
+    },
+    // PassportScanner uses ML Kit, no additional config needed
+  }
 };
 
 export default config;

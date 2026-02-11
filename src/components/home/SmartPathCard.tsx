@@ -4,8 +4,8 @@ import { Badge } from "@/components/ui/badge";
 import { Scan, User, Shield, Clock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
-import { BoardingPassScanner } from "@/components/flights/BoardingPassScanner"; // CORRECTED PATH
 import { useState } from "react";
+import { BoardingPassScanner } from "@/components/flights/BoardingPassScanner";
 
 export const SmartPathCard = () => {
   const navigate = useNavigate();
@@ -13,10 +13,7 @@ export const SmartPathCard = () => {
   const [showScanner, setShowScanner] = useState(false);
 
   const handlePassportDetails = () => {
-    toast({
-      title: "Passport Details",
-      description: "Viewing your passport information",
-    });
+    toast({ title: "Passport Details", description: "Viewing your passport information" });
   };
 
   const handleFlightRegistration = () => {
@@ -28,61 +25,69 @@ export const SmartPathCard = () => {
       <CardHeader>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Shield className="h-5 w-5 text-primary" />
-            <CardTitle className="text-lg">ProPass</CardTitle>
+            <Shield className="h-5 w-5 text-primary-foreground opacity-90" />
+            <CardTitle className="text-lg text-primary-foreground">ProPass</CardTitle>
           </div>
-          <Badge variant="secondary" className="bg-success/20 text-success-foreground">
-            Not Enrolled
-          </Badge>
+          <Badge variant="secondary" className="bg-white/20 text-white">Not Enrolled</Badge>
         </div>
-        <CardDescription>
+        <CardDescription className="text-primary-foreground/80">
           Skip the lines with expedited security screening
         </CardDescription>
       </CardHeader>
+
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-3 gap-4 text-center">
-          <div className="space-y-2">
-            <div className="p-2 bg-primary/10 rounded-lg mx-auto w-fit">
-              <Scan className="h-4 w-4 text-primary" />
-            </div>
-            <p className="text-xs text-muted-foreground">Scan Passport</p>
-          </div>
-          <div className="space-y-2">
-            <div className="p-2 bg-primary/10 rounded-lg mx-auto w-fit">
-              <User className="h-4 w-4 text-primary" />
-            </div>
-            <p className="text-xs text-muted-foreground">Take Selfie</p>
-          </div>
-          <div className="space-y-2">
-            <div className="p-2 bg-primary/10 rounded-lg mx-auto w-fit">
-              <Clock className="h-4 w-4 text-primary" />
-            </div>
-            <p className="text-xs text-muted-foreground">Fast Track</p>
-          </div>
-        </div>
-        
-        <div className="space-y-2">
-          <Button 
-            onClick={() => navigate('/smart-path/enroll')} 
-            className="w-full bg-primary hover:bg-primary/90"
+        {/* QUICK ACTIONS = REAL BUTTONS */}
+        <div className="grid grid-cols-3 gap-3 text-center">
+          <button
+            type="button"
+            className="quick-action-button flex flex-col items-center gap-2 py-3"
+            onClick={() => navigate("/smart-path/enroll?autoOpen=1")} // UPDATED LINE
           >
-            Enroll in ProPass
+            <span className="p-2 bg-white/20 rounded-lg">
+              <Scan className="h-4 w-4 text-primary-foreground" />
+            </span>
+            <span className="text-xs text-primary-foreground">Scan Passport</span>
+          </button>
+
+          <button
+            type="button"
+            className="quick-action-button flex flex-col items-center gap-2 py-3"
+            onClick={() => navigate("/smart-path/enroll?step=selfie")}
+          >
+            <span className="p-2 bg-white/20 rounded-lg">
+              <User className="h-4 w-4 text-primary-foreground" />
+            </span>
+            <span className="text-xs text-primary-foreground">Take Selfie</span>
+          </button>
+
+          <button
+            type="button"
+            className="quick-action-button flex flex-col items-center gap-2 py-3"
+            onClick={() => navigate("/smart-path/enroll")}
+          >
+            <span className="p-2 bg-white/20 rounded-lg">
+              <Clock className="h-4 w-4 text-primary-foreground" />
+            </span>
+            <span className="text-xs text-primary-foreground">Fast Track</span>
+          </button>
+        </div>
+
+        <Button onClick={() => navigate("/smart-path/enroll")} className="w-full">
+          Enroll in ProPass
+        </Button>
+
+        <div className="grid grid-cols-2 gap-2">
+          <Button variant="outline" size="sm" className="text-xs" onClick={handlePassportDetails}>
+            View Passport Details
           </Button>
-          <div className="grid grid-cols-2 gap-2">
-            <Button variant="outline" size="sm" className="text-xs" onClick={handlePassportDetails}>
-              View Passport Details
-            </Button>
-            <Button variant="outline" size="sm" className="text-xs" onClick={handleFlightRegistration}>
-              Flight Registration
-            </Button>
-          </div>
+          <Button variant="outline" size="sm" className="text-xs" onClick={handleFlightRegistration}>
+            Flight Registration
+          </Button>
         </div>
       </CardContent>
-      
-      <BoardingPassScanner 
-        isOpen={showScanner} 
-        onClose={() => setShowScanner(false)} 
-      />
+
+      {/* your existing boarding pass modal */}
+      <BoardingPassScanner isOpen={showScanner} onClose={() => setShowScanner(false)} />
     </Card>
   );
 };

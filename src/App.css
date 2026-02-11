@@ -1131,3 +1131,15 @@ select.form-control {
     opacity: 0.7;
   }
 }
+/* --- CLICKABILITY FIXES (OVERRIDES) --- */
+.propass-card { position: relative; }
+.propass-card::before,
+.passport-scanner::before {
+  pointer-events: none !important;
+  z-index: 0 !important; /* keep behind content */
+}
+
+/* Always show hand cursor for clickable things */
+button, [role="button"], .btn, .quick-action-button {
+  cursor: pointer !important;
+}

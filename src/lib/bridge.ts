@@ -4,16 +4,16 @@ declare global {
       // new names
       startLivenessVerification?: () => void;
       startEnrollment?: () => void;
-
       // legacy names (present right now)
       openAuth?: () => void;
       openEnroll?: () => void;
-
       // utils
-      toast?: (msg: string) => void;
+      toast?: (msg?: string) => void;
+
       getStatus?: () => string;
       close?: () => void;
-      postMessage?: (msg: string) => void;
+      postMessage?: (msg?: string) => void;
+
     };
   }
 }
@@ -25,7 +25,17 @@ function call<T extends keyof NonNullable<typeof window.Android>>(name: T, fallb
   if (!a) return false;
   const fn = a[name] || (fallback ? a[fallback] : undefined);
   if (typeof fn === "function") {
-    try { fn(); } catch (e) { console.error(`[bridge] ${String(name)} failed`, e); }
+    try { 
+      if (name === 'toast') {
+        (fn as (msg: string) => void)(''); // Empty message for toast
+      } else if (name === 'postMessage') {
+        (fn as (msg: string) => void)(''); // Empty message for postMessage
+      } else {
+        fn(); 
+      }
+    } catch (e) { 
+      console.error(`[bridge] ${String(name)} failed`, e); 
+    }
     return true;
   }
   return false;

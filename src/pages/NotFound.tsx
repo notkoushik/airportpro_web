@@ -1,22 +1,45 @@
-import { Link } from "react-router-dom";
-import { Frown } from "lucide-react";
+// src/pages/NotFound.tsx
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ArrowLeft, Home } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 const NotFound = () => {
+  const navigate = useNavigate();
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="text-center p-8">
-        <Frown className="mx-auto h-16 w-16 text-gray-400 mb-4" />
-        <h1 className="text-6xl font-bold text-gray-800 mb-2">404</h1>
-        <p className="text-xl text-gray-600 mb-6">Oops! The page you're looking for doesn't exist.</p>
-        <Button asChild>
-          <Link to="/">Return to Home</Link>
-        </Button>
-      </div>
+    <div className="min-h-screen flex items-center justify-center bg-muted/50">
+      <Card className="w-full max-w-md mx-4">
+        <CardHeader className="text-center">
+          <CardTitle className="text-2xl">Page Not Found</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4 text-center">
+          <p className="text-muted-foreground">
+            The page you're looking for doesn't exist.
+          </p>
+          
+          <div className="space-y-2">
+            <Button 
+              onClick={() => navigate('/')} 
+              className="w-full"
+            >
+              <Home className="w-4 h-4 mr-2" />
+              Back to Home
+            </Button>
+            
+            <Button 
+              onClick={() => navigate(-1)} 
+              variant="outline"
+              className="w-full"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Go Back
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };
 
-// You might need to import Button from your UI library
-import { Button } from "@/components/ui/button"; 
 export default NotFound;
-

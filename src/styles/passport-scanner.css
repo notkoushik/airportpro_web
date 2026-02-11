@@ -1,0 +1,178 @@
+/* src/styles/passport-scanner.css */
+.passport-scanner-enhanced {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #000;
+}
+
+.scanner-header {
+  display: flex;
+  align-items: center;
+  padding: 1rem;
+  background: rgba(0,0,0,0.8);
+  color: white;
+  position: relative;
+  z-index: 10;
+}
+
+.back-button {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 1.1rem;
+  padding: 0.5rem;
+  margin-right: 1rem;
+  cursor: pointer;
+}
+
+.camera-container {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+.camera-preview-large {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover;
+}
+
+.passport-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  pointer-events: none;
+}
+
+.scan-frame {
+  width: 85%;
+  height: 60%;
+  position: relative;
+  border: 2px solid rgba(0, 255, 0, 0.6);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.corner {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border: 3px solid #00ff00;
+}
+
+.corner.top-left {
+  top: -3px;
+  left: -3px;
+  border-right: none;
+  border-bottom: none;
+}
+
+.corner.top-right {
+  top: -3px;
+  right: -3px;
+  border-left: none;
+  border-bottom: none;
+}
+
+.corner.bottom-left {
+  bottom: -3px;
+  left: -3px;
+  border-right: none;
+  border-top: none;
+}
+
+.corner.bottom-right {
+  bottom: -3px;
+  right: -3px;
+  border-left: none;
+  border-top: none;
+}
+
+.guidance-text {
+  position: absolute;
+  bottom: 20px;
+  text-align: center;
+  color: white;
+  background: rgba(0,0,0,0.7);
+  padding: 1rem;
+  border-radius: 8px;
+}
+
+.scanner-controls {
+  padding: 1rem;
+  background: rgba(0,0,0,0.9);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 80px;
+}
+
+.btn-capture {
+  background: #007bff;
+  color: white;
+  border: none;
+  padding: 1rem 2rem;
+  border-radius: 50px;
+  font-size: 1.1rem;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.scanning-indicator {
+  text-align: center;
+  color: white;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid rgba(255,255,255,0.3);
+  border-top: 4px solid white;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 1rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.error-panel {
+  background: rgba(220, 53, 69, 0.9);
+  color: white;
+  padding: 1rem;
+  margin: 1rem;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.scanning-tips {
+  margin: 1rem 0;
+  text-align: left;
+}
+
+.scanning-tips ul {
+  margin: 0.5rem 0;
+  padding-left: 1.5rem;
+}
+
+.btn-retry {
+  background: white;
+  color: #dc3545;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  font-weight: bold;
+  cursor: pointer;
+}

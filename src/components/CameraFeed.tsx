@@ -5,77 +5,127 @@ type Props = {
   autoStart?: boolean;
   onReady?: () => void;
   onFace?: (hasFace: boolean) => void;
+  onError?: (error: Error) => void;
 };
 
-const MODEL_URL = '/models'; // must exist under <root>/public/models
+const MODEL_URL = '/models'; // Ensure models exist in public/models/
 
-export default function CameraFeed({ autoStart = true, onReady, onFace }: Props) {
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+export default function CameraFeed({ 
+  autoStart = true, 
+  onReady, 
+  onFace,
+  onError 
+}: Props) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef<number | null>(null);
+
   const [modelsLoaded, setModelsLoaded] = useState(false);
   const [stream, setStream] = useState<MediaStream | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Load face-api models once
+  // Load face-api models with proper error handling
   useEffect(() => {
     let cancelled = false;
 
     async function loadModels() {
       try {
-        await Promise.all([
-          faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-          faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL),
-        ]);
+        setIsLoading(true);
+
+        // Load models sequentially with error handling
+        await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+        if (cancelled) return;
+
+        await faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL);
+        if (cancelled) return;
+
         if (!cancelled) {
           setModelsLoaded(true);
+          setError(null);
           onReady?.();
         }
       } catch (e) {
-        console.error('[CameraFeed] Failed to load models:', e);
+        const errorMsg = `Failed to load face detection models: ${e}`;
+        console.error('[CameraFeed]', errorMsg);
+        setError(errorMsg);
+        onError?.(e instanceof Error ? e : new Error(errorMsg));
+      } finally {
+        setIsLoading(false);
       }
     }
 
     loadModels();
-    return () => { cancelled = true; };
-  }, [onReady]);
 
-  // Start camera when models are ready (or when autoStart toggles)
+    return () => { 
+      cancelled = true; 
+    };
+  }, [onReady, onError]);
+
+  // Start camera when models are ready
   useEffect(() => {
     if (!modelsLoaded || !autoStart) return;
+
     let stopped = false;
 
-    async function start() {
+    async function startCamera() {
       try {
         const media = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+          video: { 
+            facingMode: 'user', 
+            width: { ideal: 640 }, 
+            height: { ideal: 480 } 
+          },
           audio: false,
         });
-        if (stopped) return;
+
+        if (stopped) {
+          media.getTracks().forEach(t => t.stop());
+          return;
+        }
 
         setStream(media);
+
         if (videoRef.current) {
           videoRef.current.srcObject = media;
-          await videoRef.current.play().catch(() => {});
-          runLoop(); // start detection loop
+          await videoRef.current.play().catch(err => {
+            console.error('[CameraFeed] Video play failed:', err);
+          });
+
+          // Wait for video to be ready before starting detection
+          videoRef.current.onloadedmetadata = () => {
+            runDetectionLoop();
+          };
         }
       } catch (e) {
-        console.error('[CameraFeed] getUserMedia failed:', e);
+        const errorMsg = `Camera access failed: ${e}`;
+        console.error('[CameraFeed]', errorMsg);
+        setError(errorMsg);
+        onError?.(e instanceof Error ? e : new Error(errorMsg));
       }
     }
 
-    start();
-    return () => { stopped = true; };
-  }, [modelsLoaded, autoStart]);
+    startCamera();
 
-  // Detection loop
-  const runLoop = () => {
-    cancelLoop(); // defensive: clear any prior loop
+    return () => { 
+      stopped = true; 
+    };
+  }, [modelsLoaded, autoStart, onError]);
+
+  // Face detection loop with proper error handling
+  const runDetectionLoop = () => {
+    cancelDetectionLoop();
+
     const loop = async () => {
       const video = videoRef.current;
       const canvas = canvasRef.current;
-      if (!video || !canvas) return;
 
-      // Match canvas to video size
+      if (!video || !canvas || video.readyState !== 4) {
+        rafRef.current = requestAnimationFrame(loop);
+        return;
+      }
+
+      // Match canvas to video dimensions
       const { videoWidth, videoHeight } = video;
       if (videoWidth && videoHeight) {
         if (canvas.width !== videoWidth) canvas.width = videoWidth;
@@ -88,26 +138,35 @@ export default function CameraFeed({ autoStart = true, onReady, onFace }: Props)
       }
 
       try {
-        const det = await faceapi
+        const detection = await faceapi
           .detectSingleFace(
             video,
-            new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 })
+            new faceapi.TinyFaceDetectorOptions({ 
+              inputSize: 224, 
+              scoreThreshold: 0.5 
+            })
           )
           .withFaceLandmarks(true);
 
-        onFace?.(!!det);
+        // Notify parent component
+        onFace?.(!!detection);
 
-        if (det && ctx) {
-          // draw detection box & landmarks
-          const resized = faceapi.resizeResults(det, { width: canvas.width, height: canvas.height });
+        // Draw detection overlay
+        if (detection && ctx) {
+          const resized = faceapi.resizeResults(
+            detection, 
+            { width: canvas.width, height: canvas.height }
+          );
+
           faceapi.draw.drawDetections(canvas, resized);
-          // Draw landmarks if available
+
           if (resized.landmarks) {
             faceapi.draw.drawFaceLandmarks(canvas, resized);
           }
         }
       } catch (e) {
-        // Keep loop alive even if a detection fails once
+        // Continue loop even on detection errors
+        console.warn('[CameraFeed] Detection error:', e);
       }
 
       rafRef.current = requestAnimationFrame(loop);
@@ -116,8 +175,8 @@ export default function CameraFeed({ autoStart = true, onReady, onFace }: Props)
     rafRef.current = requestAnimationFrame(loop);
   };
 
-  const cancelLoop = () => {
-    if (rafRef.current != null) {
+  const cancelDetectionLoop = () => {
+    if (rafRef.current !== null) {
       cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
     }
@@ -126,34 +185,45 @@ export default function CameraFeed({ autoStart = true, onReady, onFace }: Props)
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      cancelLoop();
+      cancelDetectionLoop();
       if (stream) {
-        for (const t of stream.getTracks()) t.stop();
+        stream.getTracks().forEach(t => t.stop());
       }
     };
   }, [stream]);
 
   return (
-    <div style={{ position: 'relative', width: '100%', maxWidth: 640 }}>
+    <div style={{ position: 'relative' }}>
       <video
         ref={videoRef}
         playsInline
         muted
-        style={{ width: '100%', height: 'auto', borderRadius: 12, background: '#000' }}
+        style={{ 
+          width: '100%', 
+          height: 'auto', 
+          borderRadius: 12, 
+          background: '#000' 
+        }}
       />
       <canvas
         ref={canvasRef}
         style={{
           position: 'absolute',
-          inset: 0,
+          top: 0,
+          left: 0,
           width: '100%',
           height: '100%',
           pointerEvents: 'none',
         }}
       />
-      {!modelsLoaded && (
-        <div style={{ marginTop: 8, fontSize: 12, opacity: 0.7 }}>
-          Loading face models…
+      {isLoading && (
+        <div style={{ textAlign: 'center', padding: '1rem' }}>
+          Loading face detection models...
+        </div>
+      )}
+      {error && (
+        <div style={{ color: 'red', textAlign: 'center', padding: '1rem' }}>
+          Error: {error}
         </div>
       )}
     </div>

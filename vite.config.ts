@@ -1,24 +1,42 @@
-import { defineConfig } from 'vite';
-// Switch from the 'swc' plugin to the standard react plugin for better stability
-import react from '@vitejs/plugin-react'; 
-import path from 'path';
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+import path from 'path'
 
-// https://vitejs.dev/config/
 export default defineConfig({
-  // Ensure the react plugin is listed here
-  plugins: [react()], 
+  plugins: [react()],
   resolve: {
     alias: {
-      // This alias MUST match the one in tsconfig.json
       '@': path.resolve(__dirname, './src'),
     },
   },
   build: {
-    outDir: 'dist',
-    emptyOutDir: true,
+    target: 'esnext',
+    minify: 'esbuild',
+    commonjsOptions: {
+      include: [/node_modules/],
+      transformMixedEsModules: true,
+    },
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom', 'react/jsx-runtime']
+        }
+      }
+    }
   },
-  server: {
-    host: true, // Allows access from other devices on the same network
+  optimizeDeps: {
+    include: [
+      'react', 
+      'react-dom', 
+      'react/jsx-runtime',
+    ],
+    esbuildOptions: {
+      target: 'esnext'
+    }
   },
-});
-
+  assetsInclude: ['**/*.wasm', '**/*.traineddata', '**/*.gz'],
+  publicDir: 'public',
+  worker: {
+    format: 'es'
+  }
+})

@@ -1,4 +1,4 @@
-import { CapacitorConfig } from '@capacitor/core';
+import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.airportpro.app',
@@ -9,7 +9,6 @@ const config: CapacitorConfig = {
   },
   android: {
     // Force light theme in WebView
-    webViewTheme: 'LIGHT',
     allowMixedContent: true
   },
   plugins: {

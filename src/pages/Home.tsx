@@ -1,16 +1,15 @@
-// CORRECTED IMPORT PATHS - The builder will now find these files
 import { Header } from "@/components/core/Header";
-import { FlightCard } from "@/components/flights/FlightCard";
 import { QuickActions } from "@/components/home/QuickActions";
-import { SmartPathCard } from "@/components/home/SmartPathCard";
 import { BottomNavigation } from "@/components/core/BottomNavigation";
-
 // UI Components
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+// Replacements
+import { EnhancedSmartPathCard } from "@/components/home/EnhancedSmartPathCard";
+import { ProfessionalFlightCard } from "@/components/flights/ProfessionalFlightCard";
 
 const Home = () => {
-  // Mock data for demonstration
+  // Mock data for demonstration - matches your flight card interface
   const flights = [
     {
       flightNumber: "UA 482",
@@ -20,7 +19,7 @@ const Home = () => {
       gate: "C12",
       status: "on-time" as const,
     },
-     {
+    {
       flightNumber: "DL 5678",
       airline: "Delta Air Lines",
       destination: "Chicago ORD",
@@ -31,33 +30,36 @@ const Home = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-subtle pb-20">
+    <div className="min-h-screen bg-background">
       <Header />
       
-      <main className="p-4 space-y-6">
-        {/* ProPass Section */}
-        <SmartPathCard />
-        
+      <div className="space-y-6 p-4">
+        {/* ProPass / Smart Path (enhanced) */}
+        <EnhancedSmartPathCard />
+
         {/* My Flights */}
-        <Card className="shadow-card">
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <span>My Flights</span>
-              <Badge className="bg-primary text-primary-foreground">
-                {flights.length} Active
-              </Badge>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-base font-medium">
+              My Flights
             </CardTitle>
+            <Badge variant="secondary" className="text-xs">
+              {flights.length} Active
+            </Badge>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-3">
             {flights.map((flight, index) => (
-              <FlightCard key={index} flight={flight} />
+              <ProfessionalFlightCard
+                key={index}
+                flight={flight}
+              />
             ))}
           </CardContent>
         </Card>
-        
+
         {/* Quick Actions */}
         <QuickActions />
-      </main>
+      </div>
 
       <BottomNavigation />
     </div>
@@ -65,4 +67,3 @@ const Home = () => {
 };
 
 export default Home;
-
